@@ -34,6 +34,3 @@ spring:
     default-produces-media-type: application/json
     paths-to-match:
       - /**
-
-jwt:
-  secret: ${JWT_SECRET}
