@@ -6,6 +6,7 @@ import com.example.elsa.domain.dataset.entity.DataSet;
 import com.example.elsa.domain.dataset.repository.DataSetRepository;
 import com.example.elsa.global.error.CustomException;
 import com.example.elsa.global.error.ErrorCode;
+import com.example.elsa.global.util.DataFormatting;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,41 +23,36 @@ public class DataSetService {
 
     public void addDataSet(DataSetDto dataSetDto) {
 
-        String dataSetName = dataSetDto.getName();
+        String dataSetName = dataSetDto.getName().trim();
 
-        if (isNullOrEmpty(dataSetName)) {
+        if (DataFormatting.isNullOrEmpty(dataSetName)) {
             throw new CustomException(ErrorCode.INVALID_REQUEST_BODY);
         }
 
-        String trimmedDataSetName = dataSetName.trim();
-
         // 해당 이름의 데이터 셋 있는지 확인
-        dataSetRepository.findByName(trimmedDataSetName)
+        dataSetRepository.findByName(dataSetName)
                 // 이미 있으면 에러 발생, 없으면 새로 만들기
             .ifPresentOrElse(
                 dataSet -> {
                     throw new CustomException(ErrorCode.DUPLICATE_DATA);
                 },
-                    () -> createNewDataSet(trimmedDataSetName)
+                    () -> createNewDataSet(dataSetName)
 
             );
     }
 
     public void addKeywordToDataSet(KeywordToDataSetDto keywordToDataSetDto) {
         // 데이터가 있으면 하위 항목 추가, 없으면 에러 발생.
-        String dataSetName = keywordToDataSetDto.getDataSetName();
-        String keywordName = keywordToDataSetDto.getKeywordName();
+        String dataSetName = keywordToDataSetDto.getDataSetName().trim();
+        String keywordName = keywordToDataSetDto.getKeywordName().trim();
 
-        if (isNullOrEmpty(dataSetName) || isNullOrEmpty(keywordName)) {
+        if (DataFormatting.isNullOrEmpty(dataSetName) || DataFormatting.isNullOrEmpty(keywordName)) {
             throw new CustomException(ErrorCode.INVALID_REQUEST_BODY);
         }
 
-        String trimmedDataSetName = dataSetName.trim();
-        String trimmedKeywordName = keywordName.trim();
-
-        dataSetRepository.findByName(trimmedDataSetName)
+        dataSetRepository.findByName(dataSetName)
                 .ifPresentOrElse(
-                        dataSet -> addItemToExistingDataSet(dataSet, trimmedKeywordName),
+                        dataSet -> addItemToExistingDataSet(dataSet, keywordName),
                         () -> {
                             throw new CustomException(ErrorCode.DATA_NOT_FOUND);
                         }
@@ -102,8 +98,6 @@ public class DataSetService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
-    private boolean isNullOrEmpty(String str) {
-        return str == null || str.trim().isEmpty();
-    }
+
 }
 

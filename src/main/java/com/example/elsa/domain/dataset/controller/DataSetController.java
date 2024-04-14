@@ -43,7 +43,7 @@ public class DataSetController {
     }
 
     @Operation(summary = "특정 데이터 셋의 하위 키워드 목록 조회")
-    @GetMapping("/{dataSetName}/keywords")
+    @GetMapping("/{dataSetName}/list/keywords")
     public ResponseEntity<ResponseDto<?>> getKeywordsByDataSetName(@PathVariable String dataSetName) {
         return ResponseEntity.ok(new ResponseDto<>(dataSetName + "의 하위 키워드 리스트 조회가 완료되었습니다.", dataSetService.getKeywordsByDataSetName(dataSetName)));
     }
