@@ -2,6 +2,8 @@ package com.example.elsa.domain.qna.service;
 
 import com.example.elsa.domain.dataset.entity.DataSet;
 import com.example.elsa.domain.dataset.repository.DataSetRepository;
+import com.example.elsa.domain.qna.dto.ChatRequest;
+import com.example.elsa.domain.qna.dto.ChatResponse;
 import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
 import com.example.elsa.domain.qna.entity.QnaSet;
@@ -12,7 +14,11 @@ import com.example.elsa.global.error.ErrorCode;
 import com.example.elsa.global.util.DataFormatting;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Random;
@@ -26,6 +32,14 @@ import java.util.stream.Collectors;
 public class StandardService {
     private final StandardRepository standardRepository;
     private final DataSetRepository dataSetRepository;
+
+    @Qualifier("openaiRestTemplate")
+    @Autowired
+    private RestTemplate restTemplate;
+
+
+    @Value("${openai.api.url}")
+    private String apiUrl;
 
     public void addStandard(StandardDto standardDto) {
 
@@ -75,24 +89,16 @@ public class StandardService {
         // 기존의 '{}'형태의 값을 keyword 값으로 변환한다.
         String modifiedQuestion = replaceKeywordsInQuestion(question);
 
+        // GPT 모델에 modifiedQuestion에 대한 응답을 받아오는 기능
+        String answer = getAnswerFromGPT(modifiedQuestion);
+
         // 찾은 Standard 엔티티들에 QnaSet 추가
         for (Standard standard : standards) {
-            standard.addQnaSet(modifiedQuestion, "");
+            standard.addQnaSet(modifiedQuestion, answer);
         }
 
         // 변경된 Standard 엔티티들을 DB에 저장
         standardRepository.saveAll(standards);
-
-        // 변횐된 질문에 대해 gpt로 답변 받아오기
-
-        // 해당 윤리항목(standard) 객체에 변환된 질문, 받아온 답변에 대해 저장함
-//        standardRepository.findByName(standardName)
-//                .ifPresentOrElse(
-//                        standard -> addQnaToExistingDataSet(standard, question, answer),
-//                        () -> {
-//                            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
-//                        }
-//                );
 
     }
 
@@ -134,15 +140,27 @@ public class StandardService {
                 .orElse(dataSetName);
     }
 
-    private void addQnaToExistingDataSet(Standard standard, String question, String answer) {
-        // 해당 dataSet의 하위 목록에 keyword가 존재하지 않는 경우에만 새로운 항목을 추가한다.
-        List<QnaSet> qnaSetList = standard.getQnaSetList();
+    // GPT 모델에 modifiedQuestion에 대한 응답을 받아오는 기능
+    private String getAnswerFromGPT(String question) {
+        // Create a request
+        ChatRequest request = new ChatRequest("gpt-3.5-turbo", question);
 
         try {
-            standard.addQnaSet(question, answer);
-            standardRepository.save(standard);
+            // Call the OpenAI API
+            ChatResponse response = restTemplate.postForObject(apiUrl, request, ChatResponse.class);
+
+            if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
+                log.warn("No response from OpenAI API");
+                return "";
+            }
+
+            // Extract and return the assistant's reply from the first choice
+            String answer = response.getChoices().get(0).getMessage().getContent().trim();
+            log.info("GPT 응답: {}", answer);
+            return answer;
         } catch (Exception e) {
-            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+            log.error("Error while calling OpenAI API: {}", e.getMessage());
+            return "";
         }
     }
 

@@ -42,6 +42,8 @@ dependencies {
     implementation 'org.mapstruct:mapstruct:1.5.3.Final'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.5.3.Final'
 
+    // open API 설정
+    implementation 'com.theokanning.openai-gpt3-java:client:0.9.0'
 
 }
 
