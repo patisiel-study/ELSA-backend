@@ -1,5 +1,6 @@
 package com.example.elsa.domain.qna.controller;
 
+import com.example.elsa.domain.qna.dto.QnaToDeleteRequest;
 import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
 import com.example.elsa.domain.qna.service.StandardService;
@@ -40,5 +41,12 @@ public class StandardController {
     @GetMapping("/{standardName}/list/qna")
     public ResponseEntity<ResponseDto<?>> getAllQnaByStandard(@PathVariable String standardName) {
         return ResponseEntity.ok(new ResponseDto<>(standardName + "의 Qna 리스트 조회가 완료되었습니다.", standardService.getAllQnaByStandardName(standardName)));
+    }
+
+    @Operation(summary = "질문/답변 삭제")
+    @DeleteMapping("/delete/qna")
+    public ResponseEntity<ResponseDto<?>> deleteQnaFromStandard(@RequestBody QnaToDeleteRequest request) {
+        standardService.removeQnaFromStandard(request.getStandardName(), request.getQnaSetId());
+        return ResponseEntity.ok(new ResponseDto<>("질문/답변 삭제가 완료되었습니다.", null));
     }
 }

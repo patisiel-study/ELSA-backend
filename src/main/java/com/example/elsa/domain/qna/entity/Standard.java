@@ -18,16 +18,19 @@ public class Standard {
 
     private String name;
 
-    @ElementCollection
-    @CollectionTable(name = "qna_set", joinColumns = @JoinColumn(name = "standard_id"))
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @JoinColumn(name = "standard_id")
     private List<QnaSet> qnaSetList = new ArrayList<>();
 
     public Standard(String name) {
         this.name = name;
     }
 
-    public void addQnaSet(String question, String answer) {
-        QnaSet data = new QnaSet(question, answer);
-        qnaSetList.add(data);
+    public void addQnaSet(QnaSet qnaSet) {
+        qnaSetList.add(qnaSet);
+    }
+
+    public void removeQnaSet(QnaSet qnaSet) {
+        qnaSetList.remove(qnaSet);
     }
 }

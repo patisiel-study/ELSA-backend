@@ -8,6 +8,7 @@ import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
 import com.example.elsa.domain.qna.entity.QnaSet;
 import com.example.elsa.domain.qna.entity.Standard;
+import com.example.elsa.domain.qna.repository.QnaSetRepository;
 import com.example.elsa.domain.qna.repository.StandardRepository;
 import com.example.elsa.global.error.CustomException;
 import com.example.elsa.global.error.ErrorCode;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 public class StandardService {
     private final StandardRepository standardRepository;
     private final DataSetRepository dataSetRepository;
+    private final QnaSetRepository qnaSetRepository;
 
     @Qualifier("openaiRestTemplate")
     @Autowired
@@ -92,14 +94,29 @@ public class StandardService {
         // GPT 모델에 modifiedQuestion에 대한 응답을 받아오는 기능
         String answer = getAnswerFromGPT(modifiedQuestion);
 
+        // 미리 QnaSet 객체 생성
+        QnaSet qnaSet = new QnaSet(modifiedQuestion, answer);
+
         // 찾은 Standard 엔티티들에 QnaSet 추가
         for (Standard standard : standards) {
-            standard.addQnaSet(modifiedQuestion, answer);
+            standard.addQnaSet(qnaSet);
         }
 
         // 변경된 Standard 엔티티들을 DB에 저장
         standardRepository.saveAll(standards);
 
+    }
+
+    public void removeQnaFromStandard(String standardName, Long qnaSetId) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+        QnaSet qnaSet = standard.getQnaSetList().stream()
+                .filter(q -> q.getId().equals(qnaSetId))
+                .findFirst()
+                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+        standard.removeQnaSet(qnaSet);
+        standardRepository.save(standard);
+        qnaSetRepository.delete(qnaSet);
     }
 
     private void createNewStandard(String standardName) {
