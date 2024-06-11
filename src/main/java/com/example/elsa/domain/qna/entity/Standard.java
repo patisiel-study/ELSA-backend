@@ -18,7 +18,7 @@ public class Standard {
 
     private String name;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "standard_id")
     private List<QnaSet> qnaSetList = new ArrayList<>();
 
