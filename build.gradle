@@ -45,6 +45,10 @@ dependencies {
     // open API 설정
     implementation 'com.theokanning.openai-gpt3-java:client:0.9.0'
 
+    // excel 처리 Apache POI
+    implementation group: 'org.apache.poi', name: 'poi', version: '4.1.2'
+    implementation group: 'org.apache.poi', name: 'poi-ooxml', version: '4.1.2'
+
 }
 
 tasks.named('test') {
