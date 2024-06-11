@@ -8,14 +8,25 @@ import com.example.elsa.global.util.ResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.concurrent.CompletableFuture;
 
 @Tag(name = "스탠다드 API")
 @RestController
 @RequiredArgsConstructor
 public class StandardController {
     private final StandardService standardService;
+
+    @Operation(summary = "엑셀 파일 업로드를 통해 Q&A 생성")
+    @PostMapping(value = "/upload/qna", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseDto<?>> uploadQna(@RequestPart("file") MultipartFile file) {
+        standardService.uploadAndProcessQna(file);
+        return ResponseEntity.ok(new ResponseDto<>("Q&A 업로드가 완료되었습니다.", null));
+    }
 
     @Operation(summary = "스탠다드 생성")
     @PostMapping("/create/standard")
@@ -27,7 +38,8 @@ public class StandardController {
     @Operation(summary = "질문/답변 추가")
     @PostMapping("/create/qna")
     public ResponseEntity<ResponseDto<?>> addQna(@RequestBody QnaToStandardDto qnaToStandardDto) {
-        standardService.addQnaToStandard(qnaToStandardDto);
+        CompletableFuture<Void> future = standardService.addQnaToStandard(qnaToStandardDto);
+        future.join(); // CompletableFuture의 결과를 기다림
         return ResponseEntity.ok(new ResponseDto<>("질문/답변 추가가 완료되었습니다.", null));
     }
 
