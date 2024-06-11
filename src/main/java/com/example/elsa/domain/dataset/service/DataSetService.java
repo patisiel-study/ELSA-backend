@@ -7,11 +7,15 @@ import com.example.elsa.domain.dataset.repository.DataSetRepository;
 import com.example.elsa.global.error.CustomException;
 import com.example.elsa.global.error.ErrorCode;
 import com.example.elsa.global.util.DataFormatting;
+import com.example.elsa.global.util.ExcelHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -97,6 +101,24 @@ public class DataSetService {
         } catch (Exception e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    public void uploadDataSetAndKeyword(MultipartFile file) {
+        try {
+            // dataSet, keyword의 리스트 형태의 map으로 가져옴
+            Map<String, List<String>> data = ExcelHelper.parseExcelFile(file);
+            data.forEach(this::addDataSetWithKeywords);
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    private void addDataSetWithKeywords(String name, List<String> keywords) {
+        DataSet dataSet = dataSetRepository.findByName(name)
+                .orElseGet(() -> new DataSet(name));
+
+        keywords.forEach(dataSet::addKeyword);
+        dataSetRepository.save(dataSet);
     }
 
 }
