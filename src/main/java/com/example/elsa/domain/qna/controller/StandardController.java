@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Tag(name = "스탠다드 API")
@@ -20,6 +21,13 @@ import java.util.concurrent.CompletableFuture;
 @RequiredArgsConstructor
 public class StandardController {
     private final StandardService standardService;
+
+    @Operation(summary = "모든 스탠다드의 답변들에 대한 점수 반환")
+    @GetMapping("/analyze/sentiments")
+    public ResponseEntity<ResponseDto<Map<String, Double>>> analyzeAllStandardQnaSentiments() {
+        Map<String, Double> sentimentScores = standardService.analyzeAllStandardQnaSentiments();
+        return ResponseEntity.ok(new ResponseDto<>("해당 모델에 대한 윤리 평가가 완료되었습니다.", sentimentScores));
+    }
 
     @Operation(summary = "엑셀 파일 업로드를 통해 Q&A 생성")
     @PostMapping(value = "/upload/qna", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

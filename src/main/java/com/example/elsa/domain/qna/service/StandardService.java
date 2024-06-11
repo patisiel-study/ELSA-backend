@@ -12,14 +12,12 @@ import com.example.elsa.global.error.CustomException;
 import com.example.elsa.global.error.ErrorCode;
 import com.example.elsa.global.util.DataFormatting;
 import com.example.elsa.global.util.ExcelHelper;
+import com.example.elsa.global.util.PythonExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -27,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -39,14 +38,47 @@ public class StandardService {
     private final DataSetRepository dataSetRepository;
     private final QnaSetRepository qnaSetRepository;
     private final AnswerService answerService;
-
-    @Qualifier("openaiRestTemplate")
-    @Autowired
-    private RestTemplate restTemplate;
-
+    private final PythonExecutor pythonExecutor;
 
     @Value("${openai.api.url}")
-    private String apiUrl;
+
+    public Map<String, Double> analyzeAllStandardQnaSentiments() {
+        long startTime = System.currentTimeMillis();
+
+        List<Standard> standards = standardRepository.findAll();
+
+        Map<String, Double> result = standards.stream().collect(Collectors.toMap(
+                Standard::getName,
+                standard -> {
+                    int initialScore = standard.getQnaSetList().size();
+                    AtomicInteger adjustedScore = new AtomicInteger(initialScore);
+
+                    List<CompletableFuture<Void>> futures = standard.getQnaSetList().stream()
+                            .map(qnaSet -> pythonExecutor.executeSentimentAnalysis(qnaSet.getAnswer())
+                                    .thenAccept(analysisResult -> {
+                                        double averageScore = (double) analysisResult.get("average_compound_score");
+
+                                        if (averageScore < 0) {
+                                            adjustedScore.decrementAndGet();
+                                            log.info("Standard {} has negative sentiment for QnA. Adjusted score: {}", standard.getName(), adjustedScore.get());
+                                        }
+                                    }))
+                            .collect(Collectors.toList());
+
+                    CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+                    double finalScore = (double) adjustedScore.get() / initialScore;
+                    log.info("Standard {} final score: {}", standard.getName(), finalScore);
+                    return finalScore;
+                }
+        ));
+
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        log.info("Execution time for analyzeAllStandardQnaSentiments: {} ms", duration);
+
+        return result;
+    }
 
     public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions) {
         Standard standard = standardRepository.findByName(standardName)
@@ -112,13 +144,13 @@ public class StandardService {
         }
     }
 
-    public void addInitialStandards(List<String> standardNames) {
-        for (String name: standardNames) {
-            if (standardRepository.findByName(name).isEmpty()) {
-                createNewStandard(name);
-            }
-        }
-    }
+//    public void addInitialStandards(List<String> standardNames) {
+//        for (String name: standardNames) {
+//            if (standardRepository.findByName(name).isEmpty()) {
+//                createNewStandard(name);
+//            }
+//        }
+//    }
 
     public void addStandard(StandardDto standardDto) {
 
