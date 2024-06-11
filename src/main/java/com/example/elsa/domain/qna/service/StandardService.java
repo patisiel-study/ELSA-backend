@@ -43,6 +43,14 @@ public class StandardService {
     @Value("${openai.api.url}")
     private String apiUrl;
 
+    public void addInitialStandards(List<String> standardNames) {
+        for (String name: standardNames) {
+            if (standardRepository.findByName(name).isEmpty()) {
+                createNewStandard(name);
+            }
+        }
+    }
+
     public void addStandard(StandardDto standardDto) {
 
         String standardName = standardDto.getName().trim();
