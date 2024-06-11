@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: astar5327/elsa:latest
     env_file:
       - .env
     container_name: springboot
