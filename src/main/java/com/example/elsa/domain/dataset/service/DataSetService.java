@@ -106,7 +106,7 @@ public class DataSetService {
     public void uploadDataSetAndKeyword(MultipartFile file) {
         try {
             // dataSet, keyword의 리스트 형태의 map으로 가져옴
-            Map<String, List<String>> data = ExcelHelper.parseExcelFile(file);
+            Map<String, List<String>> data = ExcelHelper.parseDataSetAndKewordFile(file);
             data.forEach(this::addDataSetWithKeywords);
         } catch (IOException e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);

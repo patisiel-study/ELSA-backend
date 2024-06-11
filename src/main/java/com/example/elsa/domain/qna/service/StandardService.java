@@ -2,8 +2,6 @@ package com.example.elsa.domain.qna.service;
 
 import com.example.elsa.domain.dataset.entity.DataSet;
 import com.example.elsa.domain.dataset.repository.DataSetRepository;
-import com.example.elsa.domain.qna.dto.ChatRequest;
-import com.example.elsa.domain.qna.dto.ChatResponse;
 import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
 import com.example.elsa.domain.qna.entity.QnaSet;
@@ -13,16 +11,22 @@ import com.example.elsa.domain.qna.repository.StandardRepository;
 import com.example.elsa.global.error.CustomException;
 import com.example.elsa.global.error.ErrorCode;
 import com.example.elsa.global.util.DataFormatting;
+import com.example.elsa.global.util.ExcelHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -34,6 +38,7 @@ public class StandardService {
     private final StandardRepository standardRepository;
     private final DataSetRepository dataSetRepository;
     private final QnaSetRepository qnaSetRepository;
+    private final AnswerService answerService;
 
     @Qualifier("openaiRestTemplate")
     @Autowired
@@ -42,6 +47,70 @@ public class StandardService {
 
     @Value("${openai.api.url}")
     private String apiUrl;
+
+    public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseGet(() -> new Standard(standardName));
+
+        List<CompletableFuture<QnaSet>> futureQnaSets = questions.stream()
+                .map(question -> {
+                    String modifiedQuestion = replaceKeywordsInQuestion(question);
+                    return answerService.getAnswerFromGPT(modifiedQuestion)
+                            .thenApply(answer -> new QnaSet(modifiedQuestion, answer));
+                })
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futureQnaSets.toArray(new CompletableFuture[0])).join();
+
+        List<QnaSet> qnaSets = futureQnaSets.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
+
+        qnaSets.forEach(standard::addQnaSet);
+        standardRepository.save(standard);
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Async("taskExecutor")
+    public CompletableFuture<Void> addQnaToStandard(QnaToStandardDto qnaToStandardDto) {
+        List<String> standardNameList = qnaToStandardDto.getStandardNameList();
+        String question = qnaToStandardDto.getQuestion().trim();
+
+        List<Standard> standards = standardRepository.findByNameIn(standardNameList);
+        if (standards.isEmpty()) {
+            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        String modifiedQuestion = replaceKeywordsInQuestion(question);
+        CompletableFuture<String> answerFuture = answerService.getAnswerFromGPT(modifiedQuestion);
+
+        return answerFuture.thenAccept(answer -> {
+            QnaSet qnaSet = new QnaSet(modifiedQuestion, answer);
+            for (Standard standard : standards) {
+                standard.addQnaSet(qnaSet);
+            }
+            standardRepository.saveAll(standards);
+        });
+    }
+
+
+    public void uploadAndProcessQna(MultipartFile file) {
+        long startTime = System.currentTimeMillis();
+        try {
+            Map<String, List<String>> data = ExcelHelper.parseQnaFile(file);
+            List<CompletableFuture<Void>> futures = data.entrySet().stream()
+                    .map(entry -> processQnaAsync(entry.getKey(), entry.getValue()))
+                    .collect(Collectors.toList());
+
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        } finally {
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            log.info("uploadAndProcessQna 메서드 실행 시간: {} ms", duration);
+        }
+    }
 
     public void addInitialStandards(List<String> standardNames) {
         for (String name: standardNames) {
@@ -84,37 +153,6 @@ public class StandardService {
                 .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
     }
 
-    public void addQnaToStandard(QnaToStandardDto qnaToStandardDto) {
-        // 데이터가 있으면 하위 항목 추가, 없으면 에러 발생.
-        List<String> standardNameList = qnaToStandardDto.getStandardNameList();
-        String question = qnaToStandardDto.getQuestion().trim();
-
-        // 해당 Standard 객체를 불러오기
-        List<Standard> standards = standardRepository.findByNameIn(standardNameList);
-        if (standards.isEmpty()) {
-            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
-        }
-
-        // question에 '{}'로 감싸진 단어가 있다면, 해당 단어에 대해 Data_set 엔티티에서 랜덤으로 keyword 값을 가져오고,
-        // 기존의 '{}'형태의 값을 keyword 값으로 변환한다.
-        String modifiedQuestion = replaceKeywordsInQuestion(question);
-
-        // GPT 모델에 modifiedQuestion에 대한 응답을 받아오는 기능
-        String answer = getAnswerFromGPT(modifiedQuestion);
-
-        // 미리 QnaSet 객체 생성
-        QnaSet qnaSet = new QnaSet(modifiedQuestion, answer);
-
-        // 찾은 Standard 엔티티들에 QnaSet 추가
-        for (Standard standard : standards) {
-            standard.addQnaSet(qnaSet);
-        }
-
-        // 변경된 Standard 엔티티들을 DB에 저장
-        standardRepository.saveAll(standards);
-
-    }
-
     public void removeQnaFromStandard(String standardName, Long qnaSetId) {
         Standard standard = standardRepository.findByName(standardName)
                 .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
@@ -136,57 +174,33 @@ public class StandardService {
         }
     }
 
-    // quetion에서 {}로 감싸진 모든 단어들에 대해 랜덤 키워드 변환 작업 수행
+    // question에서 {}로 감싸진 모든 단어들에 대해 랜덤 키워드 변환 작업 수행
     private String replaceKeywordsInQuestion(String question) {
         Matcher matcher = Pattern.compile("\\{(.*?)\\}").matcher(question);
-        String modifiedQuestion = question;
+        StringBuffer modifiedQuestion = new StringBuffer();
 
         while (matcher.find()) {
-            String keyword = matcher.group(1);
+            String keyword = matcher.group(1).toLowerCase(); // {} 안의 문자를 소문자로 변경
             String replacement = getRandomKeywordForDataSet(keyword);
+            log.info("기존: {} -> 변경: {}", keyword, replacement);
 
-            // 매칭된 부분만 대체하여 새로운 문장 생성
-            modifiedQuestion = modifiedQuestion.replace(matcher.group(), replacement);
-
-            // 변경된 question에 대해 다시 matcher를 생성하여 루프 진행
-            matcher = Pattern.compile("\\{(.*?)\\}").matcher(modifiedQuestion);
+            // 매칭된 부분을 대체하여 새로운 문장 생성
+            matcher.appendReplacement(modifiedQuestion, Matcher.quoteReplacement(replacement));
         }
+        matcher.appendTail(modifiedQuestion);
 
         log.info("변경된 질문: {}", modifiedQuestion);
-        return modifiedQuestion;
+        return modifiedQuestion.toString();
     }
 
     // 해당 데이터 셋의 하위 목록중 랜덤으로 키워드 하나 선택
     private String getRandomKeywordForDataSet(String dataSetName) {
+
         return dataSetRepository.findByName(dataSetName)
                 .map(DataSet::getKeywords)
                 .filter(keywords -> !keywords.isEmpty())
                 .map(keywords -> keywords.get(new Random().nextInt(keywords.size())))
                 .orElse(dataSetName);
-    }
-
-    // GPT 모델에 modifiedQuestion에 대한 응답을 받아오는 기능
-    private String getAnswerFromGPT(String question) {
-        // Create a request
-        ChatRequest request = new ChatRequest("gpt-3.5-turbo", question);
-
-        try {
-            // Call the OpenAI API
-            ChatResponse response = restTemplate.postForObject(apiUrl, request, ChatResponse.class);
-
-            if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
-                log.warn("No response from OpenAI API");
-                return "";
-            }
-
-            // Extract and return the assistant's reply from the first choice
-            String answer = response.getChoices().get(0).getMessage().getContent().trim();
-            log.info("GPT 응답: {}", answer);
-            return answer;
-        } catch (Exception e) {
-            log.error("Error while calling OpenAI API: {}", e.getMessage());
-            return "";
-        }
     }
 
 }
