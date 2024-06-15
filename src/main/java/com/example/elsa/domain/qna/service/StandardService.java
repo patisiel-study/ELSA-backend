@@ -50,24 +50,35 @@ public class StandardService {
         Map<String, Double> result = standards.stream().collect(Collectors.toMap(
                 Standard::getName,
                 standard -> {
-                    int initialScore = standard.getQnaSetList().size();
-                    AtomicInteger adjustedScore = new AtomicInteger(initialScore);
+                    AtomicInteger initialScore = new AtomicInteger(standard.getQnaSetList().size());
+                    AtomicInteger adjustedScore = new AtomicInteger(initialScore.get());
 
                     List<CompletableFuture<Void>> futures = standard.getQnaSetList().stream()
                             .map(qnaSet -> pythonExecutor.executeSentimentAnalysis(qnaSet.getAnswer())
                                     .thenAccept(analysisResult -> {
-                                        double averageScore = (double) analysisResult.get("average_compound_score");
-
-                                        if (averageScore < 0) {
+                                        if (analysisResult == null || analysisResult.get("average_compound_score") == null || (double)analysisResult.get("average_compound_score") == -2.0) {
+                                            initialScore.decrementAndGet();
                                             adjustedScore.decrementAndGet();
-                                            log.info("Standard {} has negative sentiment for QnA. Adjusted score: {}", standard.getName(), adjustedScore.get());
+                                            log.info("Standard {} has a QnA with invalid sentiment. Adjusted score: {}", standard.getName(), adjustedScore.get());
+                                        }
+                                        else {
+                                            double averageScore = (double) analysisResult.get("average_compound_score");
+
+                                            if (averageScore > 0) {
+                                                adjustedScore.decrementAndGet();
+                                                log.info("Standard {} has negative sentiment for QnA. Adjusted score: {}", standard.getName(), adjustedScore.get());
+                                            }
+
+                                            // QnaSet에 감성 분석 결과를 저장
+                                            qnaSet.setSentimentScore(averageScore);
+                                            qnaSetRepository.save(qnaSet);
                                         }
                                     }))
                             .collect(Collectors.toList());
 
                     CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-                    double finalScore = (double) adjustedScore.get() / initialScore;
+                    double finalScore = (double) adjustedScore.get() / initialScore.get();
                     log.info("Standard {} final score: {}", standard.getName(), finalScore);
                     return finalScore;
                 }

@@ -18,8 +18,18 @@ public class QnaSet {
     @Column(length = 2000)
     private String answer;
 
+    private double sentimentScore;
+
+    private boolean ethicalPass;
+
+
     public QnaSet(String question, String answer) {
         this.question = question;
         this.answer = answer;
+    }
+
+    public void setSentimentScore(double sentimentScore) {
+        this.sentimentScore = sentimentScore;
+        this.ethicalPass = sentimentScore < 0;
     }
 }
