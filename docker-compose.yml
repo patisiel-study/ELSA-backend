@@ -2,10 +2,8 @@ version: '3'
 
 services:
   springboot-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: astar5327/elsa:latest
+    platform: linux/amd64
     env_file:
       - .env
     container_name: springboot
@@ -19,6 +17,7 @@ services:
       - postgres-db
     networks:
       - my-network
+
 
   postgres-db:
     image: postgres
