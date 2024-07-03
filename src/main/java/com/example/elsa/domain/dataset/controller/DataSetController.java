@@ -16,7 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 @Tag(name = "데이터 셋 API")
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api")
+@RequestMapping("/api/dataset")
 public class DataSetController {
     private final DataSetService dataSetService;
 
