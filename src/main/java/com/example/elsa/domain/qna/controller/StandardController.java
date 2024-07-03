@@ -19,6 +19,7 @@ import java.util.concurrent.CompletableFuture;
 @Tag(name = "스탠다드 API")
 @RestController
 @RequiredArgsConstructor
+@RequestMapping("/api/standard")
 public class StandardController {
     private final StandardService standardService;
 
