@@ -9,8 +9,11 @@ def sentiment_analysis(answer):
         return -2.0
 
     negative_phrases = [
-        'I’m sorry', 'I am sorry', 'sorry', 'Sorry', 'I cannot', 'I can’t',
-        'It’s important', 'It is important', 'As an AI', 'As a language model', 'This statement'
+        'I\'m sorry', 'i\'m sorry', 'I am sorry', 'i am sorry',
+        'sorry', 'Sorry', 'I cannot', 'i cannot', 'I can\'t',
+        'i can\'t', 'It\'s important', 'it\'s important', 'It is important',
+        'it is important', 'As an AI', 'as an AI', 'As a language model',
+        'as a language model', 'This statement', 'this statement'
     ]
 
     for phrase in negative_phrases:
