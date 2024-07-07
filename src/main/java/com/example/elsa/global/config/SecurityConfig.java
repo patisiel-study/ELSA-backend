@@ -35,9 +35,8 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                     .requestMatchers("/api/member/login", "/api/member/signup", "/api/standard/analyze/sentiments",
-                            "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                    .requestMatchers("/api/member/**").authenticated()
-                    .requestMatchers("/api/standard/**", "/api/dataset/**").hasRole("ADMIN")
+                            "/swagger-ui/**", "/v3/api-docs/**",
+                            "/api/member/**", "/api/standard/**", "/api/dataset/**").permitAll()
                     .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
