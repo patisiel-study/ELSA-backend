@@ -20,14 +20,14 @@ public class PythonExecutor {
         }
         try {
             // 로컬: 가상 환경의 Python 인터프리터 경로 설정
-//            String pythonInterpreter = "venv/bin/python"; // macOS/Linux
+            String pythonInterpreter = "venv/bin/python"; // macOS/Linux
 
 //            // Dockerfile에서 설정한 가상 환경의 Python 인터프리터 경로 설정
-            String pythonInterpreter = "/app/venv/bin/python"; // Docker 컨테이너 내부 경로
+//            String pythonInterpreter = "/app/venv/bin/python"; // Docker 컨테이너 내부 경로
 
             // 로컬경로
-//            String scriptPath = "src/main/resources/python/sentiment_analysis.py";
-            String scriptPath = "/app/python/sentiment_analysis.py"; // 도커 Python 스크립트의 경로
+            String scriptPath = "src/main/resources/python/sentiment_analysis.py";
+//            String scriptPath = "/app/python/sentiment_analysis.py"; // 도커 Python 스크립트의 경로
             ProcessBuilder pb = new ProcessBuilder(pythonInterpreter, scriptPath, answer);
             Process process = pb.start();
 
