@@ -48,3 +48,8 @@ openai:
   api:
     url: ${OPENAI_API_URL}
     key: ${OPENAI_API_KEY}
+
+gemini:
+  api:
+    url: ${GEMINI_API_URL}
+    key: ${GEMINI_API_KEY}

@@ -19,5 +19,4 @@ public class ChatRequest {
         this.messages.add(new Message("user", prompt));
         this.max_tokens = max_tokens;
     }
-
 }

@@ -3,6 +3,8 @@ package com.example.elsa.domain.qna.controller;
 import com.example.elsa.domain.qna.dto.QnaToDeleteRequest;
 import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
+import com.example.elsa.domain.qna.enums.LLMModel;
+import com.example.elsa.domain.qna.service.AnswerService;
 import com.example.elsa.domain.qna.service.StandardService;
 import com.example.elsa.global.util.ResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 @RequestMapping("/api/standard")
 public class StandardController {
     private final StandardService standardService;
+    private final AnswerService answerService;
 
     @Operation(summary = "모든 스탠다드의 답변들에 대한 점수 반환")
     @GetMapping("/analyze/sentiments")
@@ -32,8 +35,8 @@ public class StandardController {
 
     @Operation(summary = "엑셀 파일 업로드를 통해 Q&A 생성")
     @PostMapping(value = "/upload/qna", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ResponseDto<?>> uploadQna(@RequestPart("file") MultipartFile file) {
-        standardService.uploadAndProcessQna(file);
+    public ResponseEntity<ResponseDto<?>> uploadQna(@RequestPart("file") MultipartFile file, @RequestParam LLMModel model) {
+        standardService.uploadAndProcessQna(file, model);
         return ResponseEntity.ok(new ResponseDto<>("Q&A 업로드가 완료되었습니다.", null));
     }
 
@@ -46,8 +49,8 @@ public class StandardController {
 
     @Operation(summary = "질문/답변 추가")
     @PostMapping("/create/qna")
-    public ResponseEntity<ResponseDto<?>> addQna(@RequestBody QnaToStandardDto qnaToStandardDto) {
-        CompletableFuture<Void> future = standardService.addQnaToStandard(qnaToStandardDto);
+    public ResponseEntity<ResponseDto<?>> addQna(@RequestBody QnaToStandardDto qnaToStandardDto, @RequestParam LLMModel model) {
+        CompletableFuture<Void> future = standardService.addQnaToStandard(qnaToStandardDto, model);
         future.join(); // CompletableFuture의 결과를 기다림
         return ResponseEntity.ok(new ResponseDto<>("질문/답변 추가가 완료되었습니다.", null));
     }
@@ -69,5 +72,34 @@ public class StandardController {
     public ResponseEntity<ResponseDto<?>> deleteQnaFromStandard(@RequestBody QnaToDeleteRequest request) {
         standardService.removeQnaFromStandard(request.getStandardName(), request.getQnaSetId());
         return ResponseEntity.ok(new ResponseDto<>("질문/답변 삭제가 완료되었습니다.", null));
+    }
+
+
+    @Operation(summary = "GPT-3.5로 질문에 대한 답변 얻기")
+    @PostMapping("/answer/gpt3.5")
+    public ResponseEntity<ResponseDto<String>> getAnswerFromGPT3_5(@RequestBody String question) {
+        String answer = answerService.getAnswer(question, LLMModel.GPT_3_5).join();
+        return ResponseEntity.ok(new ResponseDto<>("GPT-3.5의 답변이 생성되었습니다.", answer));
+    }
+
+    @Operation(summary = "GPT-4로 질문에 대한 답변 얻기")
+    @PostMapping("/answer/gpt4")
+    public ResponseEntity<ResponseDto<String>> getAnswerFromGPT4(@RequestBody String question) {
+        String answer = answerService.getAnswer(question, LLMModel.GPT_4).join();
+        return ResponseEntity.ok(new ResponseDto<>("GPT-4의 답변이 생성되었습니다.", answer));
+    }
+
+    @Operation(summary = "GPT-4o 로 질문에 대한 답변 얻기")
+    @PostMapping("/answer/gpt4o")
+    public ResponseEntity<ResponseDto<String>> getAnswerFromGPT4o(@RequestBody String question) {
+        String answer = answerService.getAnswer(question, LLMModel.GPT_4o).join();
+        return ResponseEntity.ok(new ResponseDto<>("GPT-4 Turbo의 답변이 생성되었습니다.", answer));
+    }
+
+    @Operation(summary = "Gemini로 질문에 대한 답변 얻기")
+    @PostMapping("/answer/gemini")
+    public ResponseEntity<ResponseDto<String>> getAnswerFromGemini(@RequestBody String question) {
+        String answer = answerService.getAnswer(question, LLMModel.GEMINI).join();
+        return ResponseEntity.ok(new ResponseDto<>("Gemini의 답변이 생성되었습니다.", answer));
     }
 }
