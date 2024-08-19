@@ -1,5 +1,7 @@
 package com.example.elsa.domain.qna.service;
 
+import com.example.elsa.domain.qna.dto.ChatRequest;
+import com.example.elsa.domain.qna.dto.ChatResponse;
 import com.example.elsa.domain.qna.enums.LLMModel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -7,7 +9,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -24,7 +29,7 @@ public class AnswerService {
     private final RestTemplate restTemplate;
 
     @Value("${openai.api.url}")
-    private String openaiApiUrl;
+    private String apiUrl;
 
     @Value("${gemini.api.url}")
     private String geminiApiUrl;
@@ -66,30 +71,48 @@ public class AnswerService {
     }
 
     private CompletableFuture<String> getAnswerFromGPT(String question, LLMModel model) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Authorization", "Bearer " + System.getenv("OPENAI_API_KEY"));
-
-        String requestBody = String.format(
-                "{\"model\": \"%s\", \"messages\": [{\"role\": \"user\", \"content\": \"%s\"}], \"temperature\": 0.7}",
-                model.getModelName(), question
-        );
-
-        HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
+        ChatRequest request = new ChatRequest(model.getModelName(), question, 250);
 
         try {
-            ResponseEntity<String> response = restTemplate.postForEntity(openaiApiUrl, request, String.class);
-            JsonNode jsonNode = objectMapper.readTree(response.getBody());
-            String answer = jsonNode.path("choices").get(0).path("message").path("content").asText();
-            log.info("GPT ({}) 응답: {}", model.getModelName(), answer);
+            ChatResponse response = restTemplate.postForObject(apiUrl, request, ChatResponse.class);
+
+            if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
+                log.warn("No response from OpenAI API");
+                return CompletableFuture.completedFuture("");
+            }
+
+            String answer = response.getChoices().get(0).getMessage().getContent().trim();
+            log.info("GPT 응답: {}", answer);
             return CompletableFuture.completedFuture(answer);
-        } catch (HttpClientErrorException e) {
-            log.error("Error while calling OpenAI API: {}, Response Body: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return CompletableFuture.completedFuture("");
         } catch (Exception e) {
-            log.error("Unexpected error while calling OpenAI API: {}", e.getMessage());
+            log.error("Error while calling OpenAI API: {}", e.getMessage());
             return CompletableFuture.completedFuture("");
         }
+
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_JSON);
+//        headers.set("Authorization", "Bearer " + System.getenv("OPENAI_API_KEY"));
+//
+//        String requestBody = String.format(
+//                "{\"model\": \"%s\", \"messages\": [{\"role\": \"user\", \"content\": \"%s\"}], \"temperature\": 0.7}",
+//                model.getModelName(), question
+//        );
+//
+//        HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
+//
+//        try {
+//            ResponseEntity<String> response = restTemplate.postForEntity(openaiApiUrl, request, String.class);
+//            JsonNode jsonNode = objectMapper.readTree(response.getBody());
+//            String answer = jsonNode.path("choices").get(0).path("message").path("content").asText();
+//            log.info("GPT ({}) 응답: {}", model.getModelName(), answer);
+//            return CompletableFuture.completedFuture(answer);
+//        } catch (HttpClientErrorException e) {
+//            log.error("Error while calling OpenAI API: {}, Response Body: {}", e.getStatusCode(), e.getResponseBodyAsString());
+//            return CompletableFuture.completedFuture("");
+//        } catch (Exception e) {
+//            log.error("Unexpected error while calling OpenAI API: {}", e.getMessage());
+//            return CompletableFuture.completedFuture("");
+//        }
     }
 
     private CompletableFuture<String> getAnswerFromGemini(String question) {
