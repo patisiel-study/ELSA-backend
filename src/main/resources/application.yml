@@ -1,9 +1,9 @@
 spring:
   datasource:
     driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: jdbc:log4jdbc:postgresql://postgres-db:5432/elsa
+    username: postgres
+    password: 1234
 
 
   jpa:
@@ -21,13 +21,13 @@ spring:
 
   data:
     redis:
-      host: ${SPRING_REDIS_HOST}
-      port: ${SPRING_REDIS_PORT}
+      host: redis
+      port: 6379
 
   jwt:
-    secret: ${JWT_SECRET}
-    access-token-validity: ${JWT_AT}  # 1 hour in milliseconds
-    refresh-token-validity: ${JWT_RT}  # 7 days in milliseconds
+    secret: d198050ec738b4fc1736fd70a19194c5ae714c677d0ff1e1a024f6d5edeef30bccea5487c434f3a22f403954cdbad49e5d401fe506803483b46260ce1500939a
+    access-token-validity: 3600000  # 1 hour in milliseconds
+    refresh-token-validity: 604800000  # 7 days in milliseconds
 
   springdoc:
     swagger-ui:
@@ -46,5 +46,5 @@ spring:
       - /**
 openai:
   api:
-    url: ${OPENAI_API_URL}
-    key: ${OPENAI_API_KEY}
+    url: https://api.openai.com/v1/chat/completions
+    key: sk-proj-Y46RLiFX3AnLBN1nnRXVT3BlbkFJzAHzSK7dKUPreTzWiyFF
