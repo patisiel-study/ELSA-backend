@@ -56,8 +56,9 @@ public class MemberDiagnosisList extends BaseEntity {
         }
     }
 
-
-
+    public void assignMember(Member member) {
+        this.member = member;
+    }
 
     public String getRatioString() {
         return yesCount + "/" + totalCount;
@@ -71,5 +72,13 @@ public class MemberDiagnosisList extends BaseEntity {
         this.totalCount += other.getTotalCount();
         this.yesCount += other.getYesCount();
         this.noOrNotApplicableAnswers.addAll(other.getNoOrNotApplicableAnswers());
+    }
+
+    public String getTotalScoreString() {
+        return yesCount + "/" + totalCount;
+    }
+
+    public double getTotalScoreDouble() {
+        return totalCount > 0 ? (double) yesCount / totalCount : 0.0;
     }
 }

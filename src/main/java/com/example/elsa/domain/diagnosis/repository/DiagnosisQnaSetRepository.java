@@ -7,10 +7,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface DiagnosisQnaSetRepository extends JpaRepository<DiagnosisQnaSet, Long> {
     @Query("SELECT q.question FROM DiagnosisQnaSet q WHERE q.diagnosis.standardName = :standardName")
     List<String> findByDiagnosisStandardName(@Param("standardName") String standardName);
 
     List<DiagnosisQnaSet> findByDiagnosis(Diagnosis diagnosis);
+
+    Optional<DiagnosisQnaSet> findByQuestion(String question);
 }

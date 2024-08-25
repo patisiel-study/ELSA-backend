@@ -21,6 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -83,19 +84,101 @@ public class DiagnosisService {
         Member member = memberRepository.findByEmail(email)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
 
-        // 요청된 자가진단 답변 리스트를 처리하여 진단 결과 생성
-        Map<Long, MemberDiagnosisList> memberDiagnosisMap = processAnswers(member, request.getAnswers());
+        // 각 Diagnosis별로 MemberDiagnosisList를 관리하기 위한 맵
+        Map<Long, MemberDiagnosisList> memberDiagnosisMap = new HashMap<>();
 
-        // 진단 결과에 대한 통계 계산
+        // 각 답변을 처리하여 Diagnosis별로 MemberDiagnosisList를 업데이트
+        for (AnswerDto answerDto : request.getAnswers()) {
+            DiagnosisQnaSet qnaSet = getDiagnosisQnaSet(answerDto.getQuestionId());
+            Long diagnosisId = qnaSet.getDiagnosis().getId();
+
+            // Diagnosis에 해당하는 MemberDiagnosisList가 없다면 새로 생성
+            MemberDiagnosisList memberDiagnosis = memberDiagnosisMap.getOrDefault(diagnosisId,
+                    MemberDiagnosisList.builder()
+                            .member(member)
+                            .diagnosis(qnaSet.getDiagnosis())
+                            .totalCount(0)
+                            .yesCount(0)
+                            .noOrNotApplicableAnswers(new ArrayList<>())
+                            .build());
+
+            // 현재 진단 결과를 업데이트
+            memberDiagnosis.updateStatistics(qnaSet.getQuestion(), answerDto.getAnswer());
+            memberDiagnosisMap.put(diagnosisId, memberDiagnosis);
+        }
+
+        // 통계 계산
         Map<String, StandardScore> standardScores = calculateStandardScores(memberDiagnosisMap);
         Map<String, List<QuestionAnswerPair>> noOrNotApplicableMap = extractNoOrNotApplicableAnswers(memberDiagnosisMap);
         TotalScore totalScore = calculateTotalScore(memberDiagnosisMap);
 
-        // 진단 결과를 DB에 저장
+        // 결과 저장
         memberDiagnosisListRepository.saveAll(memberDiagnosisMap.values());
 
         return new DiagnosisSubmitResponse(standardScores, noOrNotApplicableMap, totalScore);
     }
+
+
+    public List<MemberDiagnosisListDto> getMemberDiagnosisHistory() {
+        String email = SecurityUtil.getCurrentMemberEmail();
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        List<MemberDiagnosisList> memberDiagnosisList = memberDiagnosisListRepository.findByMemberOrderByCreatedAtDesc(member);
+
+        return memberDiagnosisList.stream()
+                .map(diagnosisList -> new MemberDiagnosisListDto(
+                        diagnosisList.getId(),
+                        diagnosisList.getCreatedAt(),
+                        diagnosisList.getTotalScoreString(),
+                        diagnosisList.getTotalScoreDouble()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    public DiagnosisSubmitResponse getSingleDiagnosisResult(Long diagnosisId) {
+        String email = SecurityUtil.getCurrentMemberEmail();
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+
+        // 해당 사용자의 특정 diagnosisId와 연결된 모든 MemberDiagnosisList를 가져옵니다.
+        List<MemberDiagnosisList> memberDiagnosisLists = memberDiagnosisListRepository.findByMemberAndDiagnosisId(member, diagnosisId);
+
+        if (memberDiagnosisLists.isEmpty()) {
+            throw new CustomException(ErrorCode.DIAGNOSIS_QUESTION_NOT_FOUND);
+        }
+
+        // standardScores를 생성합니다.
+        Map<String, StandardScore> standardScores = new HashMap<>();
+        Map<String, List<QuestionAnswerPair>> noOrNotApplicableMap = new HashMap<>();
+        int totalYesCount = 0;
+        int totalQuestions = 0;
+
+        // 모든 MemberDiagnosisList 항목을 처리하여 결과를 통합합니다.
+        for (MemberDiagnosisList memberDiagnosis : memberDiagnosisLists) {
+            String standardName = memberDiagnosis.getDiagnosis().getStandardName();
+
+            // StandardScore 계산
+            StandardScore standardScore = new StandardScore(memberDiagnosis.getTotalScoreString(), memberDiagnosis.getTotalScoreDouble());
+            standardScores.put(standardName, standardScore);
+
+            // NO 또는 NOT_APPLICABLE 답변이 있는 경우 처리
+            if (!memberDiagnosis.getNoOrNotApplicableAnswers().isEmpty()) {
+                noOrNotApplicableMap.put(standardName, memberDiagnosis.getNoOrNotApplicableAnswers());
+            }
+
+            // 전체 총계에 추가
+            totalYesCount += memberDiagnosis.getYesCount();
+            totalQuestions += memberDiagnosis.getTotalCount();
+        }
+
+        // TotalScore 계산
+        double totalRatio = totalQuestions > 0 ? (double) totalYesCount / totalQuestions : 0.0;
+        TotalScore totalScore = new TotalScore(totalYesCount + "/" + totalQuestions, totalRatio);
+
+        return new DiagnosisSubmitResponse(standardScores, noOrNotApplicableMap, totalScore);
+    }
+
 
     private Map<Long, MemberDiagnosisList> processAnswers(Member member, List<AnswerDto> answers) {
         return answers.stream()
@@ -167,6 +250,33 @@ public class DiagnosisService {
         int totalQuestions = memberDiagnosisMap.values().stream()
                 .mapToInt(MemberDiagnosisList::getTotalCount).sum();
 
+        double ratioDouble = totalQuestions > 0 ? (double) totalYesCount / totalQuestions : 0;
+        String ratioString = totalYesCount + "/" + totalQuestions;
+
+        return new TotalScore(ratioString, ratioDouble);
+    }
+
+    private Map<String, StandardScore> calculateStandardScoresForSingleDiagnosis(MemberDiagnosisList memberDiagnosis) {
+        int totalQuestions = memberDiagnosis.getTotalCount();
+        int yesAnswers = memberDiagnosis.getYesCount();
+        double ratio = totalQuestions > 0 ? (double) yesAnswers / totalQuestions : 0;
+
+        Map<String, StandardScore> standardScores = new HashMap<>();
+        standardScores.put("Total", new StandardScore(yesAnswers + "/" + totalQuestions, ratio));
+
+        return standardScores;
+    }
+
+    private Map<String, List<QuestionAnswerPair>> extractNoOrNotApplicableAnswersForSingleDiagnosis(MemberDiagnosisList memberDiagnosis) {
+        if (!memberDiagnosis.getNoOrNotApplicableAnswers().isEmpty()) {
+            return Map.of("Total", memberDiagnosis.getNoOrNotApplicableAnswers());
+        }
+        return new HashMap<>();
+    }
+
+    private TotalScore calculateTotalScoreForSingleDiagnosis(MemberDiagnosisList memberDiagnosis) {
+        int totalYesCount = memberDiagnosis.getYesCount();
+        int totalQuestions = memberDiagnosis.getTotalCount();
         double ratioDouble = totalQuestions > 0 ? (double) totalYesCount / totalQuestions : 0;
         String ratioString = totalYesCount + "/" + totalQuestions;
 
