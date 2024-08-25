@@ -24,7 +24,7 @@ public class SignUpRequest {
     @Size(min = 2, max = 10, message = "이름은 2자 이상 10자 이하로 입력해주세요.")
     private String name;
 
-    @Schema(description = "회원의 역할", example = "DEVELOPER", required = true)
+    @Schema(description = "회원의 역할", example = "ADMIN", required = true)
     @NotNull(message = "역할은 필수 입력 값입니다.")
     private Role role;
 
