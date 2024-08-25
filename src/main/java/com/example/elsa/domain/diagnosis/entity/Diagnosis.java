@@ -21,11 +21,12 @@ public class Diagnosis {
     private String standardName;
 
     @Column(nullable = false)
-    private String standardScore;
+    private Integer standardScore;
 
     public static Diagnosis createDiagnosis(String standardName) {
         return Diagnosis.builder()
                 .standardName(standardName)
+                .standardScore(0)
                 .build();
     }
 }

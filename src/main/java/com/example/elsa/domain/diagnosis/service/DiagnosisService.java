@@ -1,5 +1,6 @@
 package com.example.elsa.domain.diagnosis.service;
 
+import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
 import com.example.elsa.domain.diagnosis.entity.Answer;
 import com.example.elsa.domain.diagnosis.entity.Diagnosis;
 import com.example.elsa.domain.diagnosis.entity.DiagnosisQnaSet;
@@ -16,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -50,5 +52,21 @@ public class DiagnosisService {
         } catch (IOException e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    public List<StandardQuestionsDto> getDiagnosisQuestions() {
+        List<Diagnosis> diagnosisList = diagnosisRepository.findAll();
+
+        // Diagnosis 엔티티를 StandardQuestionsDto로 변환
+        return diagnosisList.stream().map(diagnosis -> {
+            List<StandardQuestionsDto.QuestionDto> questions = diagnosisQnaSetRepository.findByDiagnosis(diagnosis).stream()
+                    .map(qnaSet -> new StandardQuestionsDto.QuestionDto(qnaSet.getId(), qnaSet.getQuestion()))
+                    .collect(Collectors.toList());
+
+            return StandardQuestionsDto.builder()
+                    .standardName(diagnosis.getStandardName())
+                    .questions(questions)
+                    .build();
+        }).collect(Collectors.toList());
     }
 }
