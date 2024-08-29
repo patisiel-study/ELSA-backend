@@ -83,7 +83,7 @@ public class AnswerService {
 
             String answer = response.getChoices().get(0).getMessage().getContent().trim();
             log.info("GPT 응답: {}", answer);
-            return CompletableFuture.completedFuture(answer);
+            return CompletableFuture.completedFuture(answer); 
         } catch (Exception e) {
             log.error("Error while calling OpenAI API: {}", e.getMessage());
             return CompletableFuture.completedFuture("");
