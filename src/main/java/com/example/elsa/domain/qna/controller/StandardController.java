@@ -3,6 +3,7 @@ package com.example.elsa.domain.qna.controller;
 import com.example.elsa.domain.qna.dto.QnaToDeleteRequest;
 import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
+import com.example.elsa.domain.qna.entity.QnaSet;
 import com.example.elsa.domain.qna.enums.LLMModel;
 import com.example.elsa.domain.qna.service.AnswerService;
 import com.example.elsa.domain.qna.service.StandardService;
@@ -15,8 +16,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 @Tag(name = "스탠다드 API")
 @RestController
@@ -75,7 +79,73 @@ public class StandardController {
     }
 
 
-    @Operation(summary = "GPT-3.5로 질문에 대한 답변 얻기")
+    @Operation(summary = "선택한 LLM 모델로 질문에 대한 답변 얻기")
+    @PostMapping("/answer")
+    public ResponseEntity<ResponseDto<String>> getAnswerFromLLM(@RequestBody String question, @RequestParam LLMModel model) {
+        String answer = answerService.getAnswer(question, model).join();
+        return ResponseEntity.ok(new ResponseDto<>(model.name() + "의 답변이 생성되었습니다.", answer));
+    }
+
+    @Operation(summary = "특정 스탠다드 항목의 선택한 LLM 모델 답변 조회")
+    @GetMapping("/{standardName}/list/qna/answers")
+    public ResponseEntity<ResponseDto<?>> getQnaAnswersByModel(@PathVariable String standardName, @RequestParam LLMModel model) {
+        List<QnaSet> qnaSets = standardService.getAllQnaByStandardName(standardName);
+        List<String> answerList = qnaSets.stream()
+                .map(qnaSet -> {
+                    CompletableFuture<String> answerFuture = answerService.getAnswer(qnaSet.getQuestion(), model);
+                    try {
+                        return answerFuture.get();
+                    } catch (Exception e) {
+                        return "Error occurred while getting the answer.";
+                    }
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new ResponseDto<>(standardName + "의 " + model.name() + " 모델 답변 조회가 완료되었습니다.", answerList));
+    }
+
+    /*@Operation(summary = "선택한 LLM 모델로 질문에 대한 답변 얻기")
+    @PostMapping("/answer")
+    public ResponseEntity<ResponseDto<String>> getAnswerFromLLM(@RequestBody String question, @RequestParam LLMModel model) {
+        String answer = answerService.getAnswer(question, model).join();
+        return ResponseEntity.ok(new ResponseDto<>(model.name() + "의 답변이 생성되었습니다.", answer));
+    }
+
+    @Operation(summary = "특정 스탠다드 항목의 Qna 리스트와 LLM 모델별 답변 조회")
+    @GetMapping("/{standardName}/list/qna/with-answers")
+    public ResponseEntity<ResponseDto<?>> getQnaListWithAnswersByStandard(@PathVariable String standardName) {
+        List<QnaSet> qnaSets = standardService.getAllQnaByStandardName(standardName);
+        List<Map<String, Object>> qnaList = qnaSets.stream()
+                .map(qnaSet -> {
+                    Map<String, Object> qnaInfo = new HashMap<>();
+                    qnaInfo.put("question", qnaSet.getQuestion());
+
+                    // 각 LLM 모델별로 답변을 비동기적으로 받아와서 qnaInfo에 추가
+                    Map<String, CompletableFuture<String>> answerFutures = new HashMap<>();
+                    for (LLMModel model : LLMModel.values()) {
+                        answerFutures.put(model.name(), answerService.getAnswer(qnaSet.getQuestion(), model));
+                    }
+
+                    // 모든 비동기 작업이 완료될 때까지 대기
+                    CompletableFuture.allOf(answerFutures.values().toArray(new CompletableFuture[0])).join();
+
+                    // 각 LLM 모델의 답변을 qnaInfo에 추가
+                    answerFutures.forEach((modelName, future) -> {
+                        try {
+                            qnaInfo.put(modelName, future.get());
+                        } catch (Exception e) {
+                            qnaInfo.put(modelName, "Error occurred while getting the answer.");
+                        }
+                    });
+
+                    return qnaInfo;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new ResponseDto<>(standardName + "의 Qna 리스트와 LLM 모델별 답변 조회가 완료되었습니다.", qnaList));
+    }*/
+
+    /*@Operation(summary = "GPT-3.5로 질문에 대한 답변 얻기")
     @PostMapping("/answer/gpt3.5")
     public ResponseEntity<ResponseDto<String>> getAnswerFromGPT3_5(@RequestBody String question) {
         String answer = answerService.getAnswer(question, LLMModel.GPT_3_5).join();
@@ -96,10 +166,11 @@ public class StandardController {
         return ResponseEntity.ok(new ResponseDto<>("GPT-4 Turbo의 답변이 생성되었습니다.", answer));
     }
 
+
     @Operation(summary = "Gemini로 질문에 대한 답변 얻기")
     @PostMapping("/answer/gemini")
     public ResponseEntity<ResponseDto<String>> getAnswerFromGemini(@RequestBody String question) {
         String answer = answerService.getAnswer(question, LLMModel.GEMINI).join();
         return ResponseEntity.ok(new ResponseDto<>("Gemini의 답변이 생성되었습니다.", answer));
-    }
+    }*/
 }

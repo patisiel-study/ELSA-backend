@@ -48,7 +48,7 @@ public class StandardService {
 
         List<Standard> standards = standardRepository.findAll(); //DB에서 모든 표준 객체 가져오기
 
-        Map<String, Double> result = standards.stream().collect(Collectors.toMap( ///standars리스트를 스트림으로 변환 
+        Map<String, Double> result = standards.stream().collect(Collectors.toMap( ///standars리스트를 스트림으로 변환
                 Standard::getName,
                 standard -> {
                     AtomicInteger initialScore = new AtomicInteger(standard.getQnaSetList().size()); //초기 점수와 초기 점수 qna 세트 개수
@@ -93,7 +93,7 @@ public class StandardService {
     }
 
 
-//여러 질문을 동시에 비동기적으로 처리하여 효율성을 높이고 있습니다. 각 질문에 대해 키워드를 대체하고, 
+    //여러 질문을 동시에 비동기적으로 처리하여 효율성을 높이고 있습니다. 각 질문에 대해 키워드를 대체하고,
 //GPT로부터 답변을 얻은 후, 이를 QnaSet으로 만들어 표준에 추가하는 과정을 병렬로 수행합니다
     public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions, LLMModel model) {
         Standard standard = standardRepository.findByName(standardName)
@@ -119,7 +119,7 @@ public class StandardService {
     }
 
 
-//질문 하나 처리 여러 표준 동시처리 하나 질문 응답
+    //질문 하나 처리 여러 표준 동시처리 하나 질문 응답
 //여러 표준에 동일한 QnA를 추가합니다.
     @Async("taskExecutor")
     public CompletableFuture<Void> addQnaToStandard(QnaToStandardDto qnaToStandardDto, LLMModel model) {
@@ -143,24 +143,24 @@ public class StandardService {
         });
     }
 
- //엑셀 파일에서 QnA 데이터를 파싱하고 처리
- public void uploadAndProcessQna(MultipartFile file, LLMModel model) {
-     long startTime = System.currentTimeMillis();
-     try {
-         Map<String, List<String>> data = ExcelHelper.parseQnaFile(file);
-         List<CompletableFuture<Void>> futures = data.entrySet().stream()
-                 .map(entry -> processQnaAsync(entry.getKey(), entry.getValue(), model))
-                 .collect(Collectors.toList());
+    //엑셀 파일에서 QnA 데이터를 파싱하고 처리
+    public void uploadAndProcessQna(MultipartFile file, LLMModel model) {
+        long startTime = System.currentTimeMillis();
+        try {
+            Map<String, List<String>> data = ExcelHelper.parseQnaFile(file);
+            List<CompletableFuture<Void>> futures = data.entrySet().stream()
+                    .map(entry -> processQnaAsync(entry.getKey(), entry.getValue(), model))
+                    .collect(Collectors.toList());
 
-         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-     } catch (IOException e) {
-         throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
-     } finally {
-         long endTime = System.currentTimeMillis();
-         long duration = endTime - startTime;
-         log.info("uploadAndProcessQna 메서드 실행 시간: {} ms", duration);
-     }
- }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        } finally {
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            log.info("uploadAndProcessQna 메서드 실행 시간: {} ms", duration);
+        }
+    }
 
 //    public void addInitialStandards(List<String> standardNames) {
 //        for (String name: standardNames) {
@@ -170,7 +170,7 @@ public class StandardService {
 //        }
 //    }
 
-//새로운 표준을 추가
+    //새로운 표준을 추가
     public void addStandard(StandardDto standardDto) {
 
         String standardName = standardDto.getName().trim(); //StandardDto에서 이름을 추출하고 공백을 제거
@@ -198,26 +198,26 @@ public class StandardService {
                 .collect(Collectors.toList()); //반환
     }
 
-//특정 표준 이름에 해당하는 모든 QnA 반환
+    //특정 표준 이름에 해당하는 모든 QnA 반환
     public List<QnaSet> getAllQnaByStandardName(String standardName) {
         return standardRepository.findByName(standardName) //이름으로 검색
                 .map(Standard::getQnaSetList) //표준이 존재하면 해당 표준의 QnA 세트 목록을 반환
                 .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
     }
 
-//id로 QnA 세트 제거
+    //id로 QnA 세트 제거
     public void removeQnaFromStandard(String standardName, Long qnaSetId) {
         Standard standard = standardRepository.findByName(standardName)
                 .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
-        QnaSet qnaSet = standard.getQnaSetList().stream() 
+        QnaSet qnaSet = standard.getQnaSetList().stream()
                 .filter(q -> q.getId().equals(qnaSetId))//qna 세트목록에서 주어진 id와 일치하는 qna 세트 찾음 스트림을 사용하여 ID가 일치하는 QnA 세트를 필터링
-                .findFirst() 
+                .findFirst()
                 .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
         standard.removeQnaSet(qnaSet);
         standardRepository.save(standard); //변경된 것 저장
         qnaSetRepository.delete(qnaSet); //QnA 셋에서 해당 QnA 셋 삭제
     }
-//새로운 표준을 생성하고 저장
+    //새로운 표준을 생성하고 저장
     private void createNewStandard(String standardName) {
         Standard standard = new Standard(standardName);
         try {
@@ -255,5 +255,6 @@ public class StandardService {
                 .map(keywords -> keywords.get(new Random().nextInt(keywords.size())))
                 .orElse(dataSetName);
     }
+
 
 }
