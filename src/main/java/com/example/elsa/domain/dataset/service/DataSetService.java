@@ -27,7 +27,7 @@ public class DataSetService {
 
     public void addDataSet(DataSetDto dataSetDto) {
 
-        String dataSetName = dataSetDto.getName().trim();
+        String dataSetName = dataSetDto.getName().trim(); //공백 제거 후 저장
 
         if (DataFormatting.isNullOrEmpty(dataSetName)) {
             throw new CustomException(ErrorCode.INVALID_REQUEST_BODY);
@@ -36,15 +36,16 @@ public class DataSetService {
         // 해당 이름의 데이터 셋 있는지 확인
         dataSetRepository.findByName(dataSetName)
                 // 이미 있으면 에러 발생, 없으면 새로 만들기
-            .ifPresentOrElse(
-                dataSet -> {
-                    throw new CustomException(ErrorCode.DUPLICATE_DATA);
-                },
-                    () -> createNewDataSet(dataSetName)
+                .ifPresentOrElse(
+                        dataSet -> {
+                            throw new CustomException(ErrorCode.DUPLICATE_DATA);
+                        },
+                        () -> createNewDataSet(dataSetName)
 
-            );
+                );
     }
 
+    //기존 데이터 세트에 키워드를 추가
     public void addKeywordToDataSet(KeywordToDataSetDto keywordToDataSetDto) {
         // 데이터가 있으면 하위 항목 추가, 없으면 에러 발생.
         String dataSetName = keywordToDataSetDto.getDataSetName().trim();
@@ -64,13 +65,15 @@ public class DataSetService {
 
     }
 
+    //모든 데이터 셋의 목록 반환
     public List<String> getAllDataSetNames() {
         return dataSetRepository.findAll()
                 .stream()
-                .map(DataSet::getName)
+                .map(DataSet::getName) //이름만
                 .collect(Collectors.toList());
     }
 
+    //데이터 세트 이름에 해당하는 키워드 목록을 반환
     public List<String> getKeywordsByDataSetName(String dataSetName) {
         return dataSetRepository.findByName(dataSetName)
                 .map(DataSet::getKeywords)
@@ -78,8 +81,9 @@ public class DataSetService {
     }
 
 
+    //새로운 데이터 세트를 생성
     private void createNewDataSet(String dataSetName) {
-        DataSet dataSet = new DataSet(dataSetName);
+        DataSet dataSet = new DataSet(dataSetName); //주어진 이름으로 새 DataSet 객체를 생성
         try {
             dataSetRepository.save(dataSet);
         } catch (Exception e) {
@@ -87,17 +91,18 @@ public class DataSetService {
         }
     }
 
+    //기존 데이터 세트에 새 키워드를 추가
     private void addItemToExistingDataSet(DataSet dataSet, String keywordName) {
         // 해당 dataSet의 하위 목록에 keyword가 존재하지 않는 경우에만 새로운 항목을 추가한다.
         List<String> keywords = dataSet.getKeywords();
 
-        if (keywords.contains(keywordName)) {
+        if (keywords.contains(keywordName)) { //키워드 하면
             throw new CustomException(ErrorCode.DUPLICATE_DATA);
         }
 
         try {
-            dataSet.addKeyword(keywordName);
-            dataSetRepository.save(dataSet);
+            dataSet.addKeyword(keywordName); // 새 키워드 추가
+            dataSetRepository.save(dataSet); //변경된 데이터 세트를 저장
         } catch (Exception e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
@@ -113,13 +118,13 @@ public class DataSetService {
         }
     }
 
+    //이 메소드는 데이터 세트 이름과 키워드 목록을 매개변수로 받아, 데이터 세트를 생성하거나 업데이트합니다.
     private void addDataSetWithKeywords(String name, List<String> keywords) {
         DataSet dataSet = dataSetRepository.findByName(name)
-                .orElseGet(() -> new DataSet(name));
+                .orElseGet(() -> new DataSet(name)); //데이터 세트가 존재하면 그 데이터 세트를 반환
 
         keywords.forEach(dataSet::addKeyword);
         dataSetRepository.save(dataSet);
     }
 
 }
-

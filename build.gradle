@@ -60,6 +60,9 @@ dependencies {
     // security 설정
     implementation 'org.springframework.boot:spring-boot-starter-security'
 
+    implementation 'org.postgresql:postgresql'
+
+    implementation 'net.bytebuddy:byte-buddy:1.14.9'
 
 }
 
