@@ -37,7 +37,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/member/login", "/api/member/signup", "/api/standard/analyze/sentiments",
                             "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                     .requestMatchers("/api/member/**").authenticated()
-                    .requestMatchers("/api/standard/**", "/api/dataset/**").hasAuthority("DEVELOPER")
+                    .requestMatchers("/api/standard/**", "/api/dataset/**").hasAuthority("ADMIN")
                     .anyRequest().authenticated()
             )
             .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider),
