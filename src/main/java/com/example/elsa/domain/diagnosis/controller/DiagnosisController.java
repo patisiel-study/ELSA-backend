@@ -1,5 +1,6 @@
 package com.example.elsa.domain.diagnosis.controller;
 
+import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryResponse;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
@@ -39,23 +40,25 @@ public class DiagnosisController {
     @Operation(summary = "자가진단 결과 제출", description = """
             answer = YES, NO, NOT_APPLICABLE(미해당)
             """)
-    @PostMapping("/submit/result")
+    @PostMapping("/submit")
     public ResponseEntity<ResponseDto<?>> submitDiagnosisResult(@RequestBody DiagnosisSubmitRequest request) {
         diagnosisService.submitDiagnosisResult(request);
         return ResponseEntity.ok(new ResponseDto<>("자가진단 결과를 성공적으로 제출 완료했습니다."));
     }
 
+    @Operation(summary = "회원의 자가진단 기록들 조회.", description = """
+            높은 점수 순으로 정렬됨
+            answer = YES, NO, NOT_APPLICABLE(미해당)
+            """)
+    @GetMapping("/result/history")
+    public ResponseEntity<List<DiagnosisHistoryResponse>> getDiagnosisHistory() {
+        return ResponseEntity.ok(diagnosisService.getDiagnosisHistory());
+    }
 
-
-//    @Operation(summary = "회원의 자가진단 결과 목록 조회")
-//    @GetMapping("/history")
-//    public ResponseEntity<ResponseDto<?>> getMemberDiagnosisHistory() {
-//        List<MemberDiagnosisListDto> history = diagnosisService.getMemberDiagnosisHistory();
-//        return ResponseEntity.ok(new ResponseDto<>("회원의 자가진단 결과 목록들을 가져옵니다.", history));
-//    }
-
-    @Operation(summary = "회원의 단일 자가진단 결과 상세 조회")
-    @GetMapping("/result/{diagnosisId}")
+    @Operation(summary = "회원의 단일 자가진단 결과 상세 조회", description = """
+            각 스탠다드별 점수(Yes로 대답한 개수), 미해당 및 미응답으로 대답한 문항의 QNA 리스트, 총점 반환
+            """)
+    @GetMapping("/result/detail/{diagnosisId}")
     public ResponseEntity<ResponseDto<?>> getSingleDiagnosisResult(@PathVariable Long diagnosisId) {
         DiagnosisSubmitResponse response = diagnosisService.getDiagnosisDetails(diagnosisId);
         return ResponseEntity.ok(new ResponseDto<>("회원의 단일 자가진단 결과를 조회합니다.", response));

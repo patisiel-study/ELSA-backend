@@ -185,4 +185,19 @@ public class DiagnosisService {
         return diagnosisQuestionRepository.findById(questionId)
                 .orElseThrow(() -> new CustomException(ErrorCode.DIAGNOSIS_QUESTION_NOT_FOUND));
     }
+
+    public List<DiagnosisHistoryResponse> getDiagnosisHistory() {
+        Long memberId = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
+
+        List<Diagnosis> diagnosisList = diagnosisRepository.findByMemberIdOrderByTotalScoreDesc(memberId);
+
+        return diagnosisList.stream()
+                .map(diagnosis -> new DiagnosisHistoryResponse(
+                        diagnosis.getDiagnosisId(),
+                        diagnosis.getCreatedAt(),
+                        diagnosis.getTotalScore(),
+                        diagnosis.getTotalScoreToString()))
+                .toList();
+    }
 }
