@@ -103,7 +103,7 @@ public class StandardService {
                 .map(question -> {
                     String modifiedQuestion = replaceKeywordsInQuestion(question);
                     return answerService.getAnswer(modifiedQuestion, model)
-                            .thenApply(answer -> new QnaSet(modifiedQuestion, answer));
+                            .thenApply(answer -> new QnaSet(modifiedQuestion, answer, model));
                 })
                 .collect(Collectors.toList());
 
