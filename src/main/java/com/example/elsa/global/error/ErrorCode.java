@@ -48,7 +48,8 @@ public enum ErrorCode {
     DATA_NOT_FOUND(HttpStatus.NOT_FOUND, "해당하는 데이터를 찾을 수 없습니다."),
     FRIEND_REQUEST_NOT_FOUND(HttpStatus.NOT_FOUND, "친구 요청을 찾을 수 없습니다."),
 
-    DIAGNOSIS_QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "자가진단 질문 항목을 찾을 수 없습니다.");
+    DIAGNOSIS_QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "자가진단 질문 항목을 찾을 수 없습니다."),
+    DIAGNOSIS_NOT_FOUND(HttpStatus.NOT_FOUND, "자가진단 결과를 찾을 수 없습니다."),;
 
 
     private final HttpStatus status;

@@ -12,7 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class DiagnosisSubmitResponse {
-    private List<StandardScoresDto> standardScoreList;
+    private List<StandardScoreDto> standardScoreList;
     private List<NoOrNotApplicableDto> noOrNotApplicableList;
     private TotalScoreDto totalScoreDto;
 }

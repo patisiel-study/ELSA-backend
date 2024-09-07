@@ -7,7 +7,7 @@ import lombok.*;
 @Getter
 @Setter
 @Builder
-public class StandardScoresDto {
-    private String name;
-    private Double score;
+public class StandardScoreDto {
+    private String standardName;
+    private Integer score;
 }

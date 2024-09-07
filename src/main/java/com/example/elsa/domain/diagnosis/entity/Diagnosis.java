@@ -16,7 +16,7 @@ public class Diagnosis extends BaseEntity {
     @Id
     @Column(name = "diagnosis_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long diagnosisId;
 
     @Column(nullable = false)
     private Double totalScore;
