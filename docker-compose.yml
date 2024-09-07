@@ -1,0 +1,34 @@
+version: '3'
+
+services:
+  springboot-app:
+    image: astar5327/elsa:latest
+    platform: linux/arm64
+    env_file:
+      - .env
+    container_name: springboot
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      - postgres-db
+    networks:
+      - my-network
+
+
+  postgres-db:
+    image: postgres
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
