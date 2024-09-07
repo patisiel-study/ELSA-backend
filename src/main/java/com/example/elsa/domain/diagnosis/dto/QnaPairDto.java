@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class QuestionAnswerPair {
+public class QnaPairDto {
     private String question;
     @Enumerated(EnumType.STRING)
     private Answer answer;

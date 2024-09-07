@@ -9,20 +9,16 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class DiagnosisQnaSet {
+public class StandardScore {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(nullable = false)
-    private String question;
-
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Answer answer;
-
-    @Column(nullable = false)
     private String standardName;
+
+    @Column(nullable = false)
+    private Integer score;
 
     @Column(nullable = false)
     private Long diagnosisId;

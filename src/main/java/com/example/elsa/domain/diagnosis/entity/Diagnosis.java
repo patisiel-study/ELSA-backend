@@ -1,5 +1,6 @@
 package com.example.elsa.domain.diagnosis.entity;
 
+import com.example.elsa.global.common.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,22 +12,33 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class Diagnosis {
+public class Diagnosis extends BaseEntity {
     @Id
     @Column(name = "diagnosis_id")
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long diagnosisId;
 
     @Column(nullable = false)
-    private String standardName;
+    private Double totalScore;
 
-    @Column(nullable = false)
-    private Integer standardScore;
+    @Column
+    private String totalScoreToString;
 
-    public static Diagnosis createDiagnosis(String standardName) {
+    private Long memberId;
+
+    // totalScore를 변경하는 메서드
+    public void updateTotalScore(Double totalScore) {
+        this.totalScore = totalScore;
+    }
+
+    public static Diagnosis createDiagnosis(Long memberId, Double totalScore) {
         return Diagnosis.builder()
-                .standardName(standardName)
-                .standardScore(0)
+                .memberId(memberId)
+                .totalScore(totalScore)
                 .build();
+    }
+
+    public void updateTotalScoreToString(String ratioString) {
+        this.totalScoreToString = ratioString;
     }
 }

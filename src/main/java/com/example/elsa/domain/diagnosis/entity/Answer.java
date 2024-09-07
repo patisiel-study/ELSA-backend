@@ -6,9 +6,11 @@ public enum Answer {
     NOT_APPLICABLE("미해당"),
     NOT_ANSWERED("미실시");
 
-    private String description;
+    private final String description;
 
     Answer(String description) {
         this.description = description;
     }
+
+
 }
