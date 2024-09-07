@@ -5,7 +5,7 @@ import lombok.Getter;
 
 @Getter
 @AllArgsConstructor
-public class TotalScore {
+public class TotalScoreDto {
     private String ratioString;
     private double ratioDouble;
 }

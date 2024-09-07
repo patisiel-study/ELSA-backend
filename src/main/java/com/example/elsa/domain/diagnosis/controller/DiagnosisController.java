@@ -1,8 +1,6 @@
 package com.example.elsa.domain.diagnosis.controller;
 
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
-import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
-import com.example.elsa.domain.diagnosis.dto.MemberDiagnosisListDto;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
 import com.example.elsa.domain.diagnosis.service.DiagnosisService;
 import com.example.elsa.global.util.ResponseDto;
@@ -33,7 +31,7 @@ public class DiagnosisController {
     @Operation(summary = "자가진단 문제 리스트 가져오기")
     @GetMapping("/list/questions")
     public ResponseEntity<ResponseDto<?>> getDiagnosisQuestions() {
-        List<StandardQuestionsDto> questionsGroupedByStandard = diagnosisService.getDiagnosisQuestions();
+        List<StandardQuestionsDto> questionsGroupedByStandard = diagnosisService.getDiagnosisQuestionRepository();
         return ResponseEntity.ok(new ResponseDto<>("자가진단 문제 리스트 조회가 완료되었습니다.", questionsGroupedByStandard));
     }
 
@@ -42,21 +40,21 @@ public class DiagnosisController {
             """)
     @PostMapping("/submit/result")
     public ResponseEntity<ResponseDto<?>> submitDiagnosisResult(@RequestBody DiagnosisSubmitRequest request) {
-        DiagnosisSubmitResponse diagnosisSubmitResponse = diagnosisService.submitDiagnosisResult(request);
-        return ResponseEntity.ok(new ResponseDto<>("자가진단 결과를 성공적으로 제출 완료했습니다.", diagnosisSubmitResponse));
+        diagnosisService.submitDiagnosisResult(request);
+        return ResponseEntity.ok(new ResponseDto<>("자가진단 결과를 성공적으로 제출 완료했습니다."));
     }
 
-    @Operation(summary = "회원의 자가진단 결과 목록 조회")
-    @GetMapping("/history")
-    public ResponseEntity<ResponseDto<?>> getMemberDiagnosisHistory() {
-        List<MemberDiagnosisListDto> history = diagnosisService.getMemberDiagnosisHistory();
-        return ResponseEntity.ok(new ResponseDto<>("회원의 자가진단 결과 목록들을 가져옵니다.", history));
-    }
+//    @Operation(summary = "회원의 자가진단 결과 목록 조회")
+//    @GetMapping("/history")
+//    public ResponseEntity<ResponseDto<?>> getMemberDiagnosisHistory() {
+//        List<MemberDiagnosisListDto> history = diagnosisService.getMemberDiagnosisHistory();
+//        return ResponseEntity.ok(new ResponseDto<>("회원의 자가진단 결과 목록들을 가져옵니다.", history));
+//    }
 
-    @Operation(summary = "회원의 단일 자가진단 결과 상세 조회")
-    @GetMapping("/result/{diagnosisId}")
-    public ResponseEntity<ResponseDto<?>> getSingleDiagnosisResult(@PathVariable Long diagnosisId) {
-        DiagnosisSubmitResponse response = diagnosisService.getSingleDiagnosisResult(diagnosisId);
-        return ResponseEntity.ok(new ResponseDto<>("회원의 단일 자가진단 결과를 가져왔습니다.", response));
-    }
+//    @Operation(summary = "회원의 단일 자가진단 결과 상세 조회")
+//    @GetMapping("/result/{diagnosisId}")
+//    public ResponseEntity<ResponseDto<?>> getSingleDiagnosisResult(@PathVariable Long diagnosisId) {
+//        DiagnosisSubmitResponse response = diagnosisService.getSingleDiagnosisResult(diagnosisId);
+//        return ResponseEntity.ok(new ResponseDto<>("회원의 단일 자가진단 결과를 가져왔습니다.", response));
+//    }
 }

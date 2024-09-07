@@ -1,6 +1,6 @@
 package com.example.elsa.domain.diagnosis.entity;
 
-import com.example.elsa.domain.diagnosis.dto.QuestionAnswerPair;
+import com.example.elsa.domain.diagnosis.dto.QnaPairDto;
 import com.example.elsa.domain.member.entity.Member;
 import com.example.elsa.global.common.BaseEntity;
 import jakarta.persistence.*;
@@ -40,7 +40,7 @@ public class MemberDiagnosisList extends BaseEntity {
     @ElementCollection
     @CollectionTable(name = "no_or_not_applicable_answers", joinColumns = @JoinColumn(name = "member_diagnosis_list_id"))
     @Column(name = "question_answer_pair")
-    private List<QuestionAnswerPair> noOrNotApplicableAnswers = new ArrayList<>();
+    private List<QnaPairDto> noOrNotApplicableAnswers = new ArrayList<>();
 
     public void updateStatistics(String question, Answer answer) {
         boolean alreadyExists = noOrNotApplicableAnswers.stream()
@@ -51,7 +51,7 @@ public class MemberDiagnosisList extends BaseEntity {
             if (answer == Answer.YES) {
                 yesCount++;
             } else if (answer == Answer.NO || answer == Answer.NOT_APPLICABLE) {
-                noOrNotApplicableAnswers.add(new QuestionAnswerPair(question, answer));
+                noOrNotApplicableAnswers.add(new QnaPairDto(question, answer));
             }
         }
     }
