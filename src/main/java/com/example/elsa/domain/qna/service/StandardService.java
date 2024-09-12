@@ -22,10 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -42,6 +43,7 @@ public class StandardService {
     private final PythonExecutor pythonExecutor;
 
     @Value("${openai.api.url}")
+
 
     public Map<String, Double> analyzeAllStandardQnaSentiments() { //감정 분석
         long startTime = System.currentTimeMillis(); //샐행 시간
@@ -120,7 +122,7 @@ public class StandardService {
 
 
     //질문 하나 처리 여러 표준 동시처리 하나 질문 응답
-//여러 표준에 동일한 QnA를 추가합니다.
+    //여러 표준에 동일한 QnA를 추가합니다.
     @Async("taskExecutor")
     public CompletableFuture<Void> addQnaToStandard(QnaToStandardDto qnaToStandardDto, LLMModel model) {
         List<String> standardNameList = qnaToStandardDto.getStandardNameList();
@@ -254,5 +256,66 @@ public class StandardService {
                 .filter(keywords -> !keywords.isEmpty())
                 .map(keywords -> keywords.get(new Random().nextInt(keywords.size())))
                 .orElse(dataSetName);
+    }
+    public Map<String, String> calculateAccuracyByStandard(String standardName, LLMModel model) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+
+        List<QnaSet> qnaSets = standard.getQnaSetList();
+        if (qnaSets.isEmpty()) {
+            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        QnaSet qnaSet = qnaSets.get(0);  // 첫 번째 QnaSet 사용
+        String[] excelAnswers = qnaSet.getAnswer().split(", ");
+        String question = qnaSet.getQuestion();
+
+        log.info("Excel Answers: {}", Arrays.toString(excelAnswers));
+        log.info("Question: {}", question);
+
+        CompletableFuture<String> llmAnswerFuture = answerService.getAnswer(question, model);
+
+        String llmAnswer;
+        try {
+            llmAnswer = llmAnswerFuture.get(60, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            log.error("Error getting LLM answer", e);
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+
+        log.info("LLM Answer: {}", llmAnswer);
+
+        String[] llmAnswers = llmAnswer.split("\n");  // 개행 문자로 분할
+
+        int totalQuestions = Math.min(excelAnswers.length, llmAnswers.length);
+        int correctAnswers = 0;
+
+        log.info("Total questions to compare: {}", totalQuestions);
+
+        for (int i = 0; i < totalQuestions; i++) {
+            String excelAnswer = excelAnswers[i].split("\\. ")[1].trim().toLowerCase();
+            String llmAnswerPart = llmAnswers[i].replaceAll("^\\d+\\.\\s*", "").trim().toLowerCase();
+
+            boolean isCorrect = excelAnswer.equals(llmAnswerPart);
+            if (isCorrect) {
+                correctAnswers++;
+            }
+
+            log.info("Question {}: Excel Answer: {}, LLM Answer: {}, Correct: {}",
+                    i + 1, excelAnswer, llmAnswerPart, isCorrect);
+        }
+
+        double scoreValue = totalQuestions > 0 ? (double) correctAnswers / totalQuestions : 0.0;
+        String formattedScore = String.format("%.3f", scoreValue);
+
+        log.info("Standard: {}, Total Questions: {}, Correct Answers: {}, Score: {}",
+                standardName, totalQuestions, correctAnswers, formattedScore);
+
+        Map<String, String> result = new HashMap<>();
+        result.put("score", formattedScore);
+        result.put("standardName", standardName);
+        result.put("model", model.name());
+
+        return result;
     }
 }
