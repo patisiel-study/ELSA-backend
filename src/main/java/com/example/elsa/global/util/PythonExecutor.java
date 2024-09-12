@@ -19,10 +19,10 @@ public class PythonExecutor {
             return CompletableFuture.completedFuture(null);
         }
         try {
-            // 로컬: 가상 환경의 Python 인터프리터 경로 설정
+             //로컬: 가상 환경의 Python 인터프리터 경로 설정
 //            String pythonInterpreter = "venv/bin/python"; // macOS/Linux
 
-//            // Dockerfile에서 설정한 가상 환경의 Python 인터프리터 경로 설정
+////            // Dockerfile에서 설정한 가상 환경의 Python 인터프리터 경로 설정
             String pythonInterpreter = "/app/venv/bin/python"; // Docker 컨테이너 내부 경로
 
             // 로컬경로
