@@ -18,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -115,13 +116,13 @@ public class AnswerService {
 //        }
     }
 
-    private CompletableFuture<String> getAnswerFromGemini(String question) {
+    /*private CompletableFuture<String> getAnswerFromGemini(String question) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("Authorization", "Bearer " + geminiApiKey);
+        headers.set("x-goog-api-key", geminiApiKey); // "Authorization" 대신 "x-goog-api-key" 사용
 
         String requestBody = String.format(
-                "{\"contents\":[{\"parts\":[{\"text\":\"%s\"}]}],\"generationConfig\":{\"temperature\":0.9,\"topK\":1,\"topP\":1,\"maxOutputTokens\":2048,\"stopSequences\":[]},\"safetySettings\":[{\"category\":\"HARM_CATEGORY_HARASSMENT\",\"threshold\":\"BLOCK_MEDIUM_AND_ABOVE\"},{\"category\":\"HARM_CATEGORY_HATE_SPEECH\",\"threshold\":\"BLOCK_MEDIUM_AND_ABOVE\"},{\"category\":\"HARM_CATEGORY_SEXUALLY_EXPLICIT\",\"threshold\":\"BLOCK_MEDIUM_AND_ABOVE\"},{\"category\":\"HARM_CATEGORY_DANGEROUS_CONTENT\",\"threshold\":\"BLOCK_MEDIUM_AND_ABOVE\"}]}",
+                "{\"contents\":[{\"parts\":[{\"text\":\"%s\"}]}]}",
                 question
         );
 
@@ -140,5 +141,43 @@ public class AnswerService {
             log.error("Unexpected error while calling Gemini API: {}", e.getMessage());
             return CompletableFuture.completedFuture("");
         }
+    }*/
+
+    private CompletableFuture<String> getAnswerFromGemini(String question) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.set("x-goog-api-key", geminiApiKey);
+
+        Map<String, Object> requestBody = new HashMap<>();
+        Map<String, Object> contents = new HashMap<>();
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Collections.singletonMap("text", question));
+        contents.put("parts", parts);
+        requestBody.put("contents", Collections.singletonList(contents));
+
+        HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+
+        try {
+            log.info("Sending request to Gemini API. URL: {}", geminiApiUrl);
+            log.info("Request body: {}", objectMapper.writeValueAsString(requestBody));
+
+            ResponseEntity<String> response = restTemplate.postForEntity(geminiApiUrl, request, String.class);
+
+            log.info("Received response from Gemini API. Status code: {}", response.getStatusCode());
+            log.debug("Response body: {}", response.getBody());
+
+            JsonNode jsonNode = objectMapper.readTree(response.getBody());
+            String answer = jsonNode.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
+            log.info("Gemini 응답: {}", answer);
+            return CompletableFuture.completedFuture(answer);
+        } catch (HttpClientErrorException e) {
+            log.error("Error while calling Gemini API: {}, Response Body: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return CompletableFuture.failedFuture(new RuntimeException("Gemini API call failed: " + e.getStatusCode()));
+        } catch (Exception e) {
+            log.error("Unexpected error while calling Gemini API: {}", e.getMessage(), e);
+            return CompletableFuture.failedFuture(new RuntimeException("Unexpected error in Gemini API call", e));
+        }
+
+
     }
 }
