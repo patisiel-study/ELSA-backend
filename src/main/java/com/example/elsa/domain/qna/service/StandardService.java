@@ -318,53 +318,66 @@ public class StandardService {
         }
 
         int totalQuestions = 0;
-        int correctAnswers = 0;
+        int score = 0;
 
         for (QnaSet qnaSet : qnaSets) {
-            String question = qnaSet.getQuestion();
+            String[] questions = qnaSet.getQuestion().split("\n");
             String[] excelAnswers = qnaSet.getAnswer().split("\n");
 
-            String llmAnswer;
+            String llmAnswerString;
             try {
-                llmAnswer = answerService.getAnswer(question, model).get(60, TimeUnit.SECONDS);
+                llmAnswerString = answerService.getAnswer(String.join("\n", questions), model).get(60, TimeUnit.SECONDS);
+                log.info("LLM raw response for {}: {}", standardName, llmAnswerString);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                log.error("Error getting LLM answer for question: {}", question, e);
-                continue; // 이 질문은 건너뛰고 다음 질문으로 진행
+                log.error("Error getting LLM answer for questions: {}", String.join(", ", questions), e);
+                continue;
             }
 
-            String[] llmAnswers = llmAnswer.split("\n");
+            String[] llmAnswers = llmAnswerString.split("\n");
 
             int questionCount = Math.min(excelAnswers.length, llmAnswers.length);
             totalQuestions += questionCount;
+            score += questionCount;
 
             for (int i = 0; i < questionCount; i++) {
-                String excelAnswer = excelAnswers[i].replaceAll("^\\d+\\.\\s*", "").trim().toLowerCase();
-                String llmAnswerPart = llmAnswers[i].replaceAll("^\\d+\\.\\s*", "").trim().toLowerCase();
+                String excelAnswer = extractYesNo(excelAnswers[i]);
+                String llmAnswer = extractYesNo(llmAnswers[i]);
 
-                if (excelAnswer.equals(llmAnswerPart)) {
-                    correctAnswers++;
+                log.info("Comparing - Excel: '{}', LLM: '{}'", excelAnswer, llmAnswer);
+
+                if (excelAnswer.equalsIgnoreCase(llmAnswer)) {
+                    log.info("Correct answer for question {} in {}", i + 1, standardName);
                 } else {
-                    log.info("Incorrect answer for question in {}: Excel: {}, LLM: {}",
-                            standardName, excelAnswer, llmAnswerPart);
+                    score--;
+                    log.info("Incorrect answer for question {} in {}: Excel: {}, LLM: {}",
+                            i + 1, standardName, excelAnswer, llmAnswer);
                 }
             }
         }
 
-        double scoreValue = totalQuestions > 0 ? (double) correctAnswers / totalQuestions : 0.0;
+        double scoreValue = totalQuestions > 0 ? (double) score / totalQuestions : 0.0;
         String formattedScore = String.format("%.3f", scoreValue);
 
-        log.info("Standard: {}, Model: {}, Total Questions: {}, Correct Answers: {}, Score: {}",
-                standardName, model, totalQuestions, correctAnswers, formattedScore);
+        log.info("Standard: {}, Model: {}, Total Questions: {}, Score: {}/{}, Final Score: {}",
+                standardName, model, totalQuestions, score, totalQuestions, formattedScore);
 
         Map<String, Object> result = new HashMap<>();
         result.put("score", formattedScore);
         result.put("standardName", standardName);
         result.put("model", model.name());
         result.put("totalQuestions", totalQuestions);
-        result.put("correctAnswers", correctAnswers);
+        result.put("correctAnswers", score);
 
         return result;
     }
 
-
+    private String extractYesNo(String answer) {
+        answer = answer.toLowerCase().trim();
+        if (answer.contains("yes")) {
+            return "yes";
+        } else if (answer.contains("no")) {
+            return "no";
+        }
+        return answer; // 예외 처리: yes/no가 없는 경우
+    }
 }

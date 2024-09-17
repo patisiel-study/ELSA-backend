@@ -149,17 +149,29 @@ public class AnswerService {
         headers.set("x-goog-api-key", geminiApiKey);
 
         Map<String, Object> requestBody = new HashMap<>();
-        Map<String, Object> contents = new HashMap<>();
-        List<Map<String, Object>> parts = new ArrayList<>();
+        Map<String, Object> generationConfig = new HashMap<>();
+        generationConfig.put("temperature", 0.9);
+        generationConfig.put("topK", 1);
+        generationConfig.put("topP", 1);
+        generationConfig.put("maxOutputTokens", 2048);
+
+        List<Map<String, Object>> contents = new ArrayList<>();
+        Map<String, Object> content = new HashMap<>();
+        List<Map<String, String>> parts = new ArrayList<>();
         parts.add(Collections.singletonMap("text", question));
-        contents.put("parts", parts);
-        requestBody.put("contents", Collections.singletonList(contents));
+        content.put("parts", parts);
+        contents.add(content);
+
+        requestBody.put("contents", contents);
+        requestBody.put("generationConfig", generationConfig);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
 
         try {
-            log.info("Sending request to Gemini API. URL: {}", geminiApiUrl);
-            log.info("Request body: {}", objectMapper.writeValueAsString(requestBody));
+            log.info("Gemini API URL: {}", geminiApiUrl);
+            log.info("Gemini API Key (first 5 characters): {}", geminiApiKey.substring(0, 5));
+            log.info("Request Headers: {}", headers);
+            log.info("Request Body: {}", objectMapper.writeValueAsString(requestBody));
 
             ResponseEntity<String> response = restTemplate.postForEntity(geminiApiUrl, request, String.class);
 
@@ -176,8 +188,7 @@ public class AnswerService {
         } catch (Exception e) {
             log.error("Unexpected error while calling Gemini API: {}", e.getMessage(), e);
             return CompletableFuture.failedFuture(new RuntimeException("Unexpected error in Gemini API call", e));
-        }
 
-
+    }
     }
 }
