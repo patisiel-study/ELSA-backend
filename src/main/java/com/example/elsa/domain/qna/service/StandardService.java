@@ -22,10 +22,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import com.example.elsa.global.util.ResponseDto;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,6 +45,7 @@ public class StandardService {
 
     @Value("${openai.api.url}")
 
+
     public Map<String, Double> analyzeAllStandardQnaSentiments() { //감정 분석
         long startTime = System.currentTimeMillis(); //샐행 시간
 
@@ -57,12 +60,11 @@ public class StandardService {
                     List<CompletableFuture<Void>> futures = standard.getQnaSetList().stream() //QnA 세트에 대한 비동기 작업 리스트
                             .map(qnaSet -> pythonExecutor.executeSentimentAnalysis(qnaSet.getAnswer()) //QnA 세트의 답변에 대해 감성 분석을 비동기적으로 실행
                                     .thenAccept(analysisResult -> { //감성 분석 결과를 처리하는 콜백 함수를 정의
-                                        if (analysisResult == null || analysisResult.get("average_compound_score") == null || (double)analysisResult.get("average_compound_score") == -2.0) { //유효?
+                                        if (analysisResult == null || analysisResult.get("average_compound_score") == null || (double) analysisResult.get("average_compound_score") == -2.0) { //유효?
                                             initialScore.decrementAndGet();
                                             adjustedScore.decrementAndGet(); //감소
                                             log.info("Standard {} has a QnA with invalid sentiment. Adjusted score: {}", standard.getName(), adjustedScore.get());
-                                        }
-                                        else {
+                                        } else {
                                             double averageScore = (double) analysisResult.get("average_compound_score"); //유효 점수가져오기
 
                                             if (averageScore > 0) {
@@ -120,7 +122,7 @@ public class StandardService {
 
 
     //질문 하나 처리 여러 표준 동시처리 하나 질문 응답
-//여러 표준에 동일한 QnA를 추가합니다.
+    //여러 표준에 동일한 QnA를 추가합니다.
     @Async("taskExecutor")
     public CompletableFuture<Void> addQnaToStandard(QnaToStandardDto qnaToStandardDto, LLMModel model) {
         List<String> standardNameList = qnaToStandardDto.getStandardNameList();
@@ -217,6 +219,7 @@ public class StandardService {
         standardRepository.save(standard); //변경된 것 저장
         qnaSetRepository.delete(qnaSet); //QnA 셋에서 해당 QnA 셋 삭제
     }
+
     //새로운 표준을 생성하고 저장
     private void createNewStandard(String standardName) {
         Standard standard = new Standard(standardName);
@@ -254,5 +257,116 @@ public class StandardService {
                 .filter(keywords -> !keywords.isEmpty())
                 .map(keywords -> keywords.get(new Random().nextInt(keywords.size())))
                 .orElse(dataSetName);
+    }
+
+
+    /*public Map<String, Object> calculateScore(String standardName, LLMModel model) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+
+        List<QnaSet> qnaSets = standard.getQnaSetList();
+        if (qnaSets.isEmpty()) {
+            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        int totalQuestions = qnaSets.size();
+        int score = totalQuestions; // 시작 점수를 총 질문 수로 설정
+
+        for (QnaSet qnaSet : qnaSets) {
+            String question = qnaSet.getQuestion();
+            String excelAnswer = qnaSet.getAnswer().trim().toLowerCase();
+
+            String llmAnswer;
+            try {
+                llmAnswer = answerService.getAnswer(question, model).get(60, TimeUnit.SECONDS);
+                llmAnswer = llmAnswer.trim().toLowerCase();
+
+                // 답변 비교 (부분 일치도 허용)
+                if (!llmAnswer.contains(excelAnswer) && !excelAnswer.contains(llmAnswer)) {
+                    score--; // 답변이 일치하지 않으면 점수 감소
+                    log.info("Incorrect answer for question in {}: Excel: {}, LLM: {}",
+                            standardName, excelAnswer, llmAnswer);
+                }
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                log.error("Error getting LLM answer for question: {}", question, e);
+                score--; // 에러 발생 시에도 점수 감소
+            }
+        }
+
+        double scoreValue = (double) score / totalQuestions;
+        String formattedScore = String.format("%.3f", scoreValue);
+
+        log.info("Standard: {}, Model: {}, Total Questions: {}, Score: {}/{}",
+                standardName, model, totalQuestions, score, totalQuestions);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("score", formattedScore);
+        result.put("standardName", standardName);
+        result.put("model", model.name());
+        result.put("totalQuestions", totalQuestions);
+        result.put("correctAnswers", score);
+
+        return result;
+    }*/
+    public Map<String, Object> calculateScore(String standardName, LLMModel model) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+
+        List<QnaSet> qnaSets = standard.getQnaSetList();
+        if (qnaSets.isEmpty()) {
+            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        int totalQuestions = 0;
+        int score = 0;
+
+        for (QnaSet qnaSet : qnaSets) {
+            String[] questions = qnaSet.getQuestion().split("\n");
+            String[] excelAnswers = qnaSet.getAnswer().split("\n");
+
+            String llmAnswerString;
+            try {
+                llmAnswerString = answerService.getAnswer(String.join("\n", questions), model).get(60, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                continue;
+            }
+
+            String[] llmAnswers = llmAnswerString.split("\n");
+
+            int questionCount = Math.min(excelAnswers.length, llmAnswers.length);
+            totalQuestions += questionCount;
+            score += questionCount;
+
+            for (int i = 0; i < questionCount; i++) {
+                String excelAnswer = extractYesNo(excelAnswers[i]);
+                String llmAnswer = extractYesNo(llmAnswers[i]);
+
+                if (!excelAnswer.equalsIgnoreCase(llmAnswer)) {
+                    score--;
+                }
+            }
+        }
+
+        double scoreValue = totalQuestions > 0 ? (double) score / totalQuestions : 0.0;
+        String formattedScore = String.format("%.3f", scoreValue);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("score", formattedScore);
+        result.put("standardName", standardName);
+        result.put("model", model.name());
+        result.put("totalQuestions", totalQuestions);
+        result.put("correctAnswers", score);
+
+        return result;
+    }
+
+    private String extractYesNo(String answer) {
+        answer = answer.toLowerCase().trim();
+        if (answer.contains("yes")) {
+            return "yes";
+        } else if (answer.contains("no")) {
+            return "no";
+        }
+        return answer;
     }
 }

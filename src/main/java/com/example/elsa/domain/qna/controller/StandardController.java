@@ -7,6 +7,7 @@ import com.example.elsa.domain.qna.entity.QnaSet;
 import com.example.elsa.domain.qna.enums.LLMModel;
 import com.example.elsa.domain.qna.service.AnswerService;
 import com.example.elsa.domain.qna.service.StandardService;
+import lombok.extern.slf4j.Slf4j;
 import com.example.elsa.global.util.ResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,8 +21,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import com.example.elsa.global.util.ResponseDto;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Tag(name = "스탠다드 API")
 @RestController
 @RequiredArgsConstructor
@@ -103,6 +106,27 @@ public class StandardController {
 
         return ResponseEntity.ok(new ResponseDto<>(standardName + "의 " + model.name() + " 모델 답변 조회가 완료되었습니다.", answerList));
     }
+
+    @Operation(summary = "특정 LLM 모델과 스탠다드에 대한 점수 계산")
+    @GetMapping("/calculate/score")
+    public ResponseEntity<ResponseDto<Map<String, Object>>> calculateScore(
+            @RequestParam String standardName,
+            @RequestParam LLMModel model) {
+        Map<String, Object> score = standardService.calculateScore(standardName, model);
+        log.info("Calculated score: {}", score);
+        return ResponseEntity.ok(new ResponseDto<>("LLM 모델과 스탠다드에 대한 점수 계산이 완료되었습니다.", score));
+    }
+
+    /*@Operation(summary = "특정 LLM 모델과 스탠다드에 대한 점수 계산")
+    @GetMapping("/calculate/score")
+    public ResponseEntity<ResponseDto<Map<String, Object>>> calculateScore(
+            @RequestParam String standardName,
+            @RequestParam LLMModel model) {
+        Map<String, Object> score = standardService.calculateScore(standardName, model);
+        log.info("Calculated score: {}", score);  // 로그 추가
+        return ResponseEntity.ok(new ResponseDto<>("LLM 모델과 스탠다드에 대한 점수 계산이 완료되었습니다.", score));
+    }*/
+
 
 
     /*@Operation(summary = "선택한 LLM 모델로 질문에 대한 답변 얻기")
