@@ -327,9 +327,7 @@ public class StandardService {
             String llmAnswerString;
             try {
                 llmAnswerString = answerService.getAnswer(String.join("\n", questions), model).get(60, TimeUnit.SECONDS);
-                log.info("LLM raw response for {}: {}", standardName, llmAnswerString);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                log.error("Error getting LLM answer for questions: {}", String.join(", ", questions), e);
                 continue;
             }
 
@@ -343,23 +341,14 @@ public class StandardService {
                 String excelAnswer = extractYesNo(excelAnswers[i]);
                 String llmAnswer = extractYesNo(llmAnswers[i]);
 
-                log.info("Comparing - Excel: '{}', LLM: '{}'", excelAnswer, llmAnswer);
-
-                if (excelAnswer.equalsIgnoreCase(llmAnswer)) {
-                    log.info("Correct answer for question {} in {}", i + 1, standardName);
-                } else {
+                if (!excelAnswer.equalsIgnoreCase(llmAnswer)) {
                     score--;
-                    log.info("Incorrect answer for question {} in {}: Excel: {}, LLM: {}",
-                            i + 1, standardName, excelAnswer, llmAnswer);
                 }
             }
         }
 
         double scoreValue = totalQuestions > 0 ? (double) score / totalQuestions : 0.0;
         String formattedScore = String.format("%.3f", scoreValue);
-
-        log.info("Standard: {}, Model: {}, Total Questions: {}, Score: {}/{}, Final Score: {}",
-                standardName, model, totalQuestions, score, totalQuestions, formattedScore);
 
         Map<String, Object> result = new HashMap<>();
         result.put("score", formattedScore);
@@ -378,6 +367,6 @@ public class StandardService {
         } else if (answer.contains("no")) {
             return "no";
         }
-        return answer; // 예외 처리: yes/no가 없는 경우
+        return answer;
     }
 }
