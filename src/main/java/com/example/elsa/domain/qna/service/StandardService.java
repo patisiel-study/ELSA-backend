@@ -4,9 +4,11 @@ import com.example.elsa.domain.dataset.entity.DataSet;
 import com.example.elsa.domain.dataset.repository.DataSetRepository;
 import com.example.elsa.domain.qna.dto.QnaToStandardDto;
 import com.example.elsa.domain.qna.dto.StandardDto;
+import com.example.elsa.domain.qna.entity.ModelScore;
 import com.example.elsa.domain.qna.entity.QnaSet;
 import com.example.elsa.domain.qna.entity.Standard;
 import com.example.elsa.domain.qna.enums.LLMModel;
+import com.example.elsa.domain.qna.repository.ModelScoreRepository;
 import com.example.elsa.domain.qna.repository.QnaSetRepository;
 import com.example.elsa.domain.qna.repository.StandardRepository;
 import com.example.elsa.global.error.CustomException;
@@ -14,6 +16,7 @@ import com.example.elsa.global.error.ErrorCode;
 import com.example.elsa.global.util.DataFormatting;
 import com.example.elsa.global.util.ExcelHelper;
 import com.example.elsa.global.util.PythonExecutor;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,11 +43,11 @@ public class StandardService {
     private final StandardRepository standardRepository;
     private final DataSetRepository dataSetRepository;
     private final QnaSetRepository qnaSetRepository;
+    private final ModelScoreRepository modelScoreRepository;
     private final AnswerService answerService;
     private final PythonExecutor pythonExecutor;
 
     @Value("${openai.api.url}")
-
 
     public Map<String, Double> analyzeAllStandardQnaSentiments() { //감정 분석
         long startTime = System.currentTimeMillis(); //샐행 시간
@@ -97,7 +100,7 @@ public class StandardService {
 
     //여러 질문을 동시에 비동기적으로 처리하여 효율성을 높이고 있습니다. 각 질문에 대해 키워드를 대체하고,
 //GPT로부터 답변을 얻은 후, 이를 QnaSet으로 만들어 표준에 추가하는 과정을 병렬로 수행합니다
-    public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions, LLMModel model) {
+    /*public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions, LLMModel model) {
         Standard standard = standardRepository.findByName(standardName)
                 .orElseGet(() -> new Standard(standardName));
 
@@ -106,6 +109,27 @@ public class StandardService {
                     String modifiedQuestion = replaceKeywordsInQuestion(question);
                     return answerService.getAnswer(modifiedQuestion, model)
                             .thenApply(answer -> new QnaSet(modifiedQuestion, answer, model));
+                })
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futureQnaSets.toArray(new CompletableFuture[0])).join();
+
+        List<QnaSet> qnaSets = futureQnaSets.stream()
+                .map(CompletableFuture::join)
+                .collect(Collectors.toList());
+
+        qnaSets.forEach(standard::addQnaSet);
+        standardRepository.save(standard);
+        return CompletableFuture.completedFuture(null);
+    }*/
+    public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseGet(() -> new Standard(standardName));
+
+        List<CompletableFuture<QnaSet>> futureQnaSets = questions.stream()
+                .map(question -> {
+                    String modifiedQuestion = replaceKeywordsInQuestion(question);
+                    return CompletableFuture.completedFuture(new QnaSet(modifiedQuestion, ""));
                 })
                 .collect(Collectors.toList());
 
@@ -146,7 +170,7 @@ public class StandardService {
     }
 
     //엑셀 파일에서 QnA 데이터를 파싱하고 처리
-    public void uploadAndProcessQna(MultipartFile file, LLMModel model) {
+    /*public void uploadAndProcessQna(MultipartFile file, LLMModel model) {
         long startTime = System.currentTimeMillis();
         try {
             Map<String, List<String>> data = ExcelHelper.parseQnaFile(file);
@@ -161,6 +185,60 @@ public class StandardService {
             long endTime = System.currentTimeMillis();
             long duration = endTime - startTime;
             log.info("uploadAndProcessQna 메서드 실행 시간: {} ms", duration);
+        }
+    }*/
+    /////////////////////////////
+    public void uploadAndProcessQna(MultipartFile file) {
+        long startTime = System.currentTimeMillis();
+        try {
+            Map<String, List<String>> data = ExcelHelper.parseQnaFile(file);
+            for (Map.Entry<String, List<String>> entry : data.entrySet()) {
+                String standardName = entry.getKey();
+                List<String> questions = entry.getValue();
+
+                Standard standard = standardRepository.findByName(standardName)
+                        .orElseGet(() -> new Standard(standardName));
+
+                for (int i = 0; i < questions.size(); i += 2) {
+                    String question = questions.get(i);
+                    String answer = (i + 1 < questions.size()) ? questions.get(i + 1) : "";
+                    QnaSet qnaSet = new QnaSet(question, answer);
+                    standard.addQnaSet(qnaSet);
+                }
+
+                standardRepository.save(standard);
+            }
+        } catch (IOException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        } finally {
+            long endTime = System.currentTimeMillis();
+            long duration = endTime - startTime;
+            log.info("uploadAndProcessQna 메서드 실행 시간: {} ms", duration);
+        }
+    }
+
+    @Transactional
+    public void generateAnswersForModel(LLMModel model) {
+        List<Standard> standards = standardRepository.findAll();
+        for (Standard standard : standards) {
+            List<QnaSet> originalQnaSets = new ArrayList<>(standard.getQnaSetList());
+            List<QnaSet> newQnaSets = new ArrayList<>();
+
+            for (QnaSet qnaSet : originalQnaSets) {
+                if (qnaSet.getModel() == null) {  // 원본 질문만 처리
+                    String question = qnaSet.getQuestion();
+                    try {
+                        String answer = answerService.getAnswer(question, model).get(60, TimeUnit.SECONDS);
+                        QnaSet modelAnswer = new QnaSet(question, answer, model);
+                        newQnaSets.add(modelAnswer);
+                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                        log.error("Error getting answer for question: {} with model: {}", question, model, e);
+                    }
+                }
+            }
+
+            standard.getQnaSetList().addAll(newQnaSets);
+            standardRepository.save(standard);
         }
     }
 
@@ -368,5 +446,60 @@ public class StandardService {
             return "no";
         }
         return answer;
+    }
+
+    @Transactional
+    public Map<String, Object> calculateAndSaveScoresForModel(LLMModel model) {
+        Map<String, Object> scores = new HashMap<>();
+        List<Standard> standards = standardRepository.findAll();
+
+        for (Standard standard : standards) {
+            try {
+                Map<String, Object> scoreResult = calculateScore(standard.getName(), model);
+                double score = Double.parseDouble((String) scoreResult.get("score"));
+                ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standard.getName(), model)
+                        .orElse(new ModelScore(standard, model, score));
+                modelScore.setScore(score);
+                modelScoreRepository.save(modelScore);
+
+                scores.put(standard.getName(), Map.of(
+                        "score", score
+                ));
+                log.info("Saved score for standard {} and model {}: {}", standard.getName(), model, score);
+            } catch (Exception e) {
+                log.error("Error calculating and saving score for standard {} and model {}: {}", standard.getName(), model, e.getMessage(), e);
+                scores.put(standard.getName(), "Error calculating and saving score");
+            }
+        }
+
+        return scores;
+    }
+
+    @Transactional
+    public QnaSet saveScoreToDB(Standard standard, LLMModel model, Map<String, Object> score) {
+        QnaSet qnaSet = new QnaSet(standard.getName(), (String) score.get("score"), model);
+        qnaSet.setSentimentScore(Double.parseDouble((String) score.get("score")));
+        standard.addQnaSet(qnaSet);
+        Standard savedStandard = standardRepository.save(standard);
+        return savedStandard.getQnaSetList().get(savedStandard.getQnaSetList().size() - 1);
+    }
+
+    public Map<LLMModel, Map<String, Object>> getAllScores() {
+        Map<LLMModel, Map<String, Object>> allScores = new EnumMap<>(LLMModel.class);
+        List<Standard> standards = standardRepository.findAll();
+
+        for (LLMModel model : LLMModel.values()) {
+            Map<String, Object> modelScores = new HashMap<>();
+            for (Standard standard : standards) {
+                ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standard.getName(), model)
+                        .orElse(new ModelScore(standard, model, 0.0));
+                modelScores.put(standard.getName(), Map.of(
+                        "score", modelScore.getScore()
+                ));
+            }
+            allScores.put(model, modelScores);
+        }
+
+        return allScores;
     }
 }

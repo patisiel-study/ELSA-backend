@@ -7,11 +7,13 @@ import com.example.elsa.domain.qna.entity.QnaSet;
 import com.example.elsa.domain.qna.enums.LLMModel;
 import com.example.elsa.domain.qna.service.AnswerService;
 import com.example.elsa.domain.qna.service.StandardService;
+import com.example.elsa.global.error.CustomException;
 import lombok.extern.slf4j.Slf4j;
 import com.example.elsa.global.util.ResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -40,11 +42,24 @@ public class StandardController {
         return ResponseEntity.ok(new ResponseDto<>("해당 모델에 대한 윤리 평가가 완료되었습니다.", sentimentScores));
     }
 
-    @Operation(summary = "엑셀 파일 업로드를 통해 Q&A 생성")
+    /*@Operation(summary = "엑셀 파일 업로드를 통해 Q&A 생성")
     @PostMapping(value = "/upload/qna", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ResponseDto<?>> uploadQna(@RequestPart("file") MultipartFile file, @RequestParam LLMModel model) {
         standardService.uploadAndProcessQna(file, model);
         return ResponseEntity.ok(new ResponseDto<>("Q&A 업로드가 완료되었습니다.", null));
+    }*/
+    @Operation(summary = "엑셀 파일 업로드를 통해 Q&A 생성")
+    @PostMapping(value = "/upload/qna", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseDto<?>> uploadQna(@RequestPart("file") MultipartFile file) {
+        standardService.uploadAndProcessQna(file);
+        return ResponseEntity.ok(new ResponseDto<>("Q&A 업로드가 완료되었습니다.", null));
+    }
+
+    @Operation(summary = "선택한 모델에 대해 질문 답변 생성")
+    @PostMapping("/generate-answers")
+    public ResponseEntity<ResponseDto<?>> generateAnswers(@RequestParam LLMModel model) {
+        standardService.generateAnswersForModel(model);
+        return ResponseEntity.ok(new ResponseDto<>(model.name() + "에 대한 답변 생성이 완료되었습니다.", null));
     }
 
     @Operation(summary = "스탠다드 생성")
@@ -107,7 +122,7 @@ public class StandardController {
         return ResponseEntity.ok(new ResponseDto<>(standardName + "의 " + model.name() + " 모델 답변 조회가 완료되었습니다.", answerList));
     }
 
-    @Operation(summary = "특정 LLM 모델과 스탠다드에 대한 점수 계산")
+    /*@Operation(summary = "특정 LLM 모델과 스탠다드에 대한 점수 계산")
     @GetMapping("/calculate/score")
     public ResponseEntity<ResponseDto<Map<String, Object>>> calculateScore(
             @RequestParam String standardName,
@@ -115,6 +130,19 @@ public class StandardController {
         Map<String, Object> score = standardService.calculateScore(standardName, model);
         log.info("Calculated score: {}", score);
         return ResponseEntity.ok(new ResponseDto<>("LLM 모델과 스탠다드에 대한 점수 계산이 완료되었습니다.", score));
+    }*/
+    @Operation(summary = "특정 모델에 대한 모든 스탠다드의 점수 계산 및 저장")
+    @PostMapping("/calculate-scores/{model}")
+    public ResponseEntity<ResponseDto<?>> calculateScoresForModel(@PathVariable LLMModel model) {
+        Map<String, Object> scores = standardService.calculateAndSaveScoresForModel(model);
+        return ResponseEntity.ok(new ResponseDto<>(model.name() + "에 대한 모든 스탠다드의 점수 계산 및 저장이 완료되었습니다.", scores));
+    }
+
+    @Operation(summary = "모든 모델의 모든 스탠다드 점수 조회")
+    @GetMapping("/all-scores")
+    public ResponseEntity<ResponseDto<Map<LLMModel, Map<String, Object>>>> getAllScores() {
+        Map<LLMModel, Map<String, Object>> allScores = standardService.getAllScores();
+        return ResponseEntity.ok(new ResponseDto<>("모든 모델의 모든 스탠다드 점수 조회가 완료되었습니다.", allScores));
     }
 
     /*@Operation(summary = "특정 LLM 모델과 스탠다드에 대한 점수 계산")
