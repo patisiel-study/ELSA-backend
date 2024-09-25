@@ -100,28 +100,6 @@ public class StandardService {
 
     //여러 질문을 동시에 비동기적으로 처리하여 효율성을 높이고 있습니다. 각 질문에 대해 키워드를 대체하고,
 //GPT로부터 답변을 얻은 후, 이를 QnaSet으로 만들어 표준에 추가하는 과정을 병렬로 수행합니다
-    /*public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions, LLMModel model) {
-        Standard standard = standardRepository.findByName(standardName)
-                .orElseGet(() -> new Standard(standardName));
-
-        List<CompletableFuture<QnaSet>> futureQnaSets = questions.stream()
-                .map(question -> {
-                    String modifiedQuestion = replaceKeywordsInQuestion(question);
-                    return answerService.getAnswer(modifiedQuestion, model)
-                            .thenApply(answer -> new QnaSet(modifiedQuestion, answer, model));
-                })
-                .collect(Collectors.toList());
-
-        CompletableFuture.allOf(futureQnaSets.toArray(new CompletableFuture[0])).join();
-
-        List<QnaSet> qnaSets = futureQnaSets.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.toList());
-
-        qnaSets.forEach(standard::addQnaSet);
-        standardRepository.save(standard);
-        return CompletableFuture.completedFuture(null);
-    }*/
     public CompletableFuture<Void> processQnaAsync(String standardName, List<String> questions) {
         Standard standard = standardRepository.findByName(standardName)
                 .orElseGet(() -> new Standard(standardName));
@@ -170,24 +148,6 @@ public class StandardService {
     }
 
     //엑셀 파일에서 QnA 데이터를 파싱하고 처리
-    /*public void uploadAndProcessQna(MultipartFile file, LLMModel model) {
-        long startTime = System.currentTimeMillis();
-        try {
-            Map<String, List<String>> data = ExcelHelper.parseQnaFile(file);
-            List<CompletableFuture<Void>> futures = data.entrySet().stream()
-                    .map(entry -> processQnaAsync(entry.getKey(), entry.getValue(), model))
-                    .collect(Collectors.toList());
-
-            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-        } catch (IOException e) {
-            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
-        } finally {
-            long endTime = System.currentTimeMillis();
-            long duration = endTime - startTime;
-            log.info("uploadAndProcessQna 메서드 실행 시간: {} ms", duration);
-        }
-    }*/
-    /////////////////////////////
     public void uploadAndProcessQna(MultipartFile file) {
         long startTime = System.currentTimeMillis();
         try {
