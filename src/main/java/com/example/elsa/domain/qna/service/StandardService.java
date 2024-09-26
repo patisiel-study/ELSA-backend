@@ -390,7 +390,7 @@ public class StandardService {
 
         for (Standard standard : standards) {
             if (standard.getName() == null || standard.getName().trim().isEmpty()) {
-                continue;  // 빈 이름의 표준을 건너뜁니다.
+                continue;
             }
             try {
                 Map<String, Object> scoreResult = calculateScore(standard.getName(), model);
