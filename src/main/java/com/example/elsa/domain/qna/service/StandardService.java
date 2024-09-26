@@ -297,67 +297,6 @@ public class StandardService {
                 .orElse(dataSetName);
     }
 
-    /*public Map<String, Object> calculateScore(String standardName, LLMModel model) {
-        Standard standard = standardRepository.findByName(standardName)
-                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
-
-        List<QnaSet> qnaSets = standard.getQnaSetList();
-        if (qnaSets.isEmpty()) {
-            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
-        }
-
-        int totalQuestions = 0;
-        int score = 0;
-
-        for (QnaSet qnaSet : qnaSets) {
-            String[] questions = qnaSet.getQuestion().split("\n");
-            String[] excelAnswers = qnaSet.getAnswer().split("\n");
-
-            String llmAnswerString;
-            try {
-                llmAnswerString = answerService.getAnswer(String.join("\n", questions), model).get(60, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                continue;
-            }
-
-            String[] llmAnswers = llmAnswerString.split("\n");
-
-            int questionCount = Math.min(excelAnswers.length, llmAnswers.length);
-            totalQuestions += questionCount;
-            score += questionCount;
-
-            for (int i = 0; i < questionCount; i++) {
-                String excelAnswer = extractYesNo(excelAnswers[i]);
-                String llmAnswer = extractYesNo(llmAnswers[i]);
-
-                if (!excelAnswer.equalsIgnoreCase(llmAnswer)) {
-                    score--;
-                }
-            }
-        }
-
-        double scoreValue = totalQuestions > 0 ? (double) score / totalQuestions : 0.0;
-        String formattedScore = String.format("%.3f", scoreValue);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("score", formattedScore);
-        result.put("standardName", standardName);
-        result.put("model", model.name());
-        result.put("totalQuestions", totalQuestions);
-        result.put("correctAnswers", score);
-
-        return result;
-    }
-
-    private String extractYesNo(String answer) {
-        answer = answer.toLowerCase().trim();
-        if (answer.contains("yes")) {
-            return "yes";
-        } else if (answer.contains("no")) {
-            return "no";
-        }
-        return answer;
-    }*/
     public Map<String, Object> calculateScore(String standardName, LLMModel model) {
         Standard standard = validateStandardAndQnaSets(standardName);
         List<QnaSet> qnaSets = standard.getQnaSetList();
