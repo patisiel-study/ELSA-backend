@@ -297,56 +297,7 @@ public class StandardService {
                 .orElse(dataSetName);
     }
 
-
     /*public Map<String, Object> calculateScore(String standardName, LLMModel model) {
-        Standard standard = standardRepository.findByName(standardName)
-                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
-
-        List<QnaSet> qnaSets = standard.getQnaSetList();
-        if (qnaSets.isEmpty()) {
-            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
-        }
-
-        int totalQuestions = qnaSets.size();
-        int score = totalQuestions; // 시작 점수를 총 질문 수로 설정
-
-        for (QnaSet qnaSet : qnaSets) {
-            String question = qnaSet.getQuestion();
-            String excelAnswer = qnaSet.getAnswer().trim().toLowerCase();
-
-            String llmAnswer;
-            try {
-                llmAnswer = answerService.getAnswer(question, model).get(60, TimeUnit.SECONDS);
-                llmAnswer = llmAnswer.trim().toLowerCase();
-
-                // 답변 비교 (부분 일치도 허용)
-                if (!llmAnswer.contains(excelAnswer) && !excelAnswer.contains(llmAnswer)) {
-                    score--; // 답변이 일치하지 않으면 점수 감소
-                    log.info("Incorrect answer for question in {}: Excel: {}, LLM: {}",
-                            standardName, excelAnswer, llmAnswer);
-                }
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                log.error("Error getting LLM answer for question: {}", question, e);
-                score--; // 에러 발생 시에도 점수 감소
-            }
-        }
-
-        double scoreValue = (double) score / totalQuestions;
-        String formattedScore = String.format("%.3f", scoreValue);
-
-        log.info("Standard: {}, Model: {}, Total Questions: {}, Score: {}/{}",
-                standardName, model, totalQuestions, score, totalQuestions);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("score", formattedScore);
-        result.put("standardName", standardName);
-        result.put("model", model.name());
-        result.put("totalQuestions", totalQuestions);
-        result.put("correctAnswers", score);
-
-        return result;
-    }*/
-    public Map<String, Object> calculateScore(String standardName, LLMModel model) {
         Standard standard = standardRepository.findByName(standardName)
                 .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
 
@@ -406,6 +357,91 @@ public class StandardService {
             return "no";
         }
         return answer;
+    }*/
+    public Map<String, Object> calculateScore(String standardName, LLMModel model) {
+        Standard standard = validateStandardAndQnaSets(standardName);
+        List<QnaSet> qnaSets = standard.getQnaSetList();
+
+        int totalQuestions = 0;
+        int correctAnswers = 0;
+
+        for (QnaSet qnaSet : qnaSets) {
+            String[] questions = qnaSet.getQuestion().split("\n");
+            String[] excelAnswers = qnaSet.getAnswer().split("\n");
+
+            String llmAnswerString = getLLMAnswer(String.join("\n", questions), model);
+            if (llmAnswerString == null) continue;
+
+            String[] llmAnswers = llmAnswerString.split("\n");
+
+            int[] scoreResult = compareAnswersAndCalculateScore(excelAnswers, llmAnswers);
+            totalQuestions += scoreResult[0];
+            correctAnswers += scoreResult[1];
+        }
+
+        double scoreValue = calculateFinalScore(totalQuestions, correctAnswers);
+        return createResultMap(standardName, model, totalQuestions, correctAnswers, scoreValue);
+    }
+
+    private Standard validateStandardAndQnaSets(String standardName) {
+        Standard standard = standardRepository.findByName(standardName)
+                .orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+
+        if (standard.getQnaSetList().isEmpty()) {
+            throw new CustomException(ErrorCode.DATA_NOT_FOUND);
+        }
+
+        return standard;
+    }
+
+    private String getLLMAnswer(String questions, LLMModel model) {
+        try {
+            return answerService.getAnswer(questions, model).get(60, TimeUnit.SECONDS);
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            log.error("Error getting LLM answer: ", e);
+            return null;
+        }
+    }
+
+    private int[] compareAnswersAndCalculateScore(String[] excelAnswers, String[] llmAnswers) {
+        int questionCount = Math.min(excelAnswers.length, llmAnswers.length);
+        int correctCount = questionCount;
+
+        for (int i = 0; i < questionCount; i++) {
+            String excelAnswer = extractYesNo(excelAnswers[i]);
+            String llmAnswer = extractYesNo(llmAnswers[i]);
+
+            if (!excelAnswer.equalsIgnoreCase(llmAnswer)) {
+                correctCount--;
+            }
+        }
+
+        return new int[]{questionCount, correctCount};
+    }
+
+    private double calculateFinalScore(int totalQuestions, int correctAnswers) {
+        return totalQuestions > 0 ? (double) correctAnswers / totalQuestions : 0.0;
+    }
+
+    private Map<String, Object> createResultMap(String standardName, LLMModel model, int totalQuestions, int correctAnswers, double scoreValue) {
+        String formattedScore = String.format("%.3f", scoreValue);
+        Map<String, Object> result = new HashMap<>();
+        result.put("score", formattedScore);
+        result.put("standardName", standardName);
+        result.put("model", model.name());
+        result.put("totalQuestions", totalQuestions);
+        result.put("correctAnswers", correctAnswers);
+        return result;
+    }
+
+    private String extractYesNo(String answer) {
+        answer = answer.toLowerCase().trim();
+        if (answer.contains("yes")) {
+            return "yes";
+        } else if (answer.contains("no")) {
+            return "no";
+        }
+        return answer;
     }
 
     @Transactional
@@ -414,6 +450,9 @@ public class StandardService {
         List<Standard> standards = standardRepository.findAll();
 
         for (Standard standard : standards) {
+            if (standard.getName() == null || standard.getName().trim().isEmpty()) {
+                continue;  // 빈 이름의 표준을 건너뜁니다.
+            }
             try {
                 Map<String, Object> scoreResult = calculateScore(standard.getName(), model);
                 double score = Double.parseDouble((String) scoreResult.get("score"));
@@ -422,10 +461,8 @@ public class StandardService {
                 modelScore.setScore(score);
                 modelScoreRepository.save(modelScore);
 
-                scores.put(standard.getName(), Map.of(
-                        "score", score
-                ));
-                log.info("Saved score for standard {} and model {}: {}", standard.getName(), model, score);
+                scores.put(standard.getName(), Map.of("score", score));
+                log.info("Calculated and saved score for standard {} and model {}: {}", standard.getName(), model, score);
             } catch (Exception e) {
                 log.error("Error calculating and saving score for standard {} and model {}: {}", standard.getName(), model, e.getMessage(), e);
                 scores.put(standard.getName(), "Error calculating and saving score");
@@ -435,27 +472,21 @@ public class StandardService {
         return scores;
     }
 
-    @Transactional
-    public QnaSet saveScoreToDB(Standard standard, LLMModel model, Map<String, Object> score) {
-        QnaSet qnaSet = new QnaSet(standard.getName(), (String) score.get("score"), model);
-        qnaSet.setSentimentScore(Double.parseDouble((String) score.get("score")));
-        standard.addQnaSet(qnaSet);
-        Standard savedStandard = standardRepository.save(standard);
-        return savedStandard.getQnaSetList().get(savedStandard.getQnaSetList().size() - 1);
-    }
 
     public Map<LLMModel, Map<String, Object>> getAllScores() {
         Map<LLMModel, Map<String, Object>> allScores = new EnumMap<>(LLMModel.class);
-        List<Standard> standards = standardRepository.findAll();
+        List<Standard> standards = standardRepository.findAllValidStandards(); // 유효한 표준만 가져옵니다.
 
         for (LLMModel model : LLMModel.values()) {
             Map<String, Object> modelScores = new HashMap<>();
             for (Standard standard : standards) {
-                ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standard.getName(), model)
-                        .orElse(new ModelScore(standard, model, 0.0));
-                modelScores.put(standard.getName(), Map.of(
-                        "score", modelScore.getScore()
-                ));
+                if (standard.getName() != null && !standard.getName().trim().isEmpty()) {
+                    ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standard.getName(), model)
+                            .orElse(new ModelScore(standard, model, 0.0));
+                    modelScores.put(standard.getName(), Map.of(
+                            "score", modelScore.getScore()
+                    ));
+                }
             }
             allScores.put(model, modelScores);
         }
