@@ -25,7 +25,7 @@ import java.util.List;
 @RestController
 @Slf4j
 @RequiredArgsConstructor
-@RequestMapping("/api/member")
+@RequestMapping("/api")
 public class MemberController {
     private final MemberService memberService;
     private final JwtTokenProvider jwtTokenProvider;
@@ -70,7 +70,7 @@ public class MemberController {
     }
 
     @Operation(summary = "Access Token 재발급", description = "Access Token 만료시 기존에 발급받은 Refresh Token을 이쪽으로 보내서 새로운 Access Token 받아가기")
-    @PostMapping("/refresh")
+    @PostMapping("/member/refresh")
     public ResponseEntity<ResponseDto<?>> refreshAccessToken(@RequestBody RefreshTokenRequest refreshTokenRequest) {
         JwtToken token = jwtTokenProvider.refreshAccessToken(refreshTokenRequest.getRefreshToken());
         return ResponseEntity.ok(new ResponseDto<>("Access Token 재발급 완료.", token));
@@ -81,7 +81,7 @@ public class MemberController {
             @ApiResponse(responseCode = "200", description = "로그아웃 성공"),
             @ApiResponse(responseCode = "401", description = "인증 실패")
     })
-    @PostMapping("/logout")
+    @PostMapping("/member/logout")
     public ResponseEntity<?> logout(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
         String email = customUserDetails.getUsername();
         jwtTokenProvider.deleteRefreshToken(email);
