@@ -44,13 +44,15 @@ public class DiagnosisService {
                 List<String> questions = entry.getValue();
 
                 // 각 질문에 대해 DiagnosisQnaSet 객체 생성 및 저장
-                questions.forEach(question -> {
-                    DiagnosisQuestion diagnosisQuestion = DiagnosisQuestion.builder()
-                            .question(question)
-                            .standardName(standardName)
-                            .build();
-                    diagnosisQuestionRepository.save(diagnosisQuestion);
-                });
+                questions.stream()
+                        .distinct() // 중복 제거
+                        .forEach(question -> {
+                            DiagnosisQuestion diagnosisQuestion = DiagnosisQuestion.builder()
+                                    .question(question)
+                                    .standardName(standardName)
+                                    .build();
+                            diagnosisQuestionRepository.save(diagnosisQuestion);
+                        });
             }
         } catch (IOException e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);

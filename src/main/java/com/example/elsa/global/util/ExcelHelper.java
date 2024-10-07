@@ -68,7 +68,10 @@ public class ExcelHelper {
                             if (row != null) {
                                 Cell cell = row.getCell(headerCell.getColumnIndex());
                                 if (cell != null && cell.getCellType() == CellType.STRING) {
-                                    question.add(cell.getStringCellValue());
+                                    String cellValue = cell.getStringCellValue().trim();
+                                    if (!cellValue.isEmpty()) {
+                                        question.add(cellValue);
+                                    }
                                 }
                             }
                         }
