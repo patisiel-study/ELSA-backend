@@ -42,8 +42,7 @@ public class DiagnosisController {
             """)
     @PostMapping("/developer/submit")
     public ResponseEntity<ResponseDto<?>> submitDiagnosisResult(@RequestBody DiagnosisSubmitRequest request) {
-        diagnosisService.submitDiagnosisResult(request);
-        return ResponseEntity.ok(new ResponseDto<>("자가진단 결과를 성공적으로 제출 완료했습니다."));
+        return ResponseEntity.ok(new ResponseDto<>("자가진단 결과를 성공적으로 제출 완료했습니다.", diagnosisService.submitDiagnosisResult(request)));
     }
 
     @Operation(summary = "회원의 자가진단 기록들 조회.", description = """

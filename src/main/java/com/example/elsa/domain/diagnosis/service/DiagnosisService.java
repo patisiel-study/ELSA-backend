@@ -79,7 +79,7 @@ public class DiagnosisService {
     }
 
 
-    public void submitDiagnosisResult(DiagnosisSubmitRequest request) {
+    public SubmitDiagnosisRequest submitDiagnosisResult(DiagnosisSubmitRequest request) {
         // 진단 결과 생성 및 저장
         Long memberId = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
                 .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
@@ -151,6 +151,8 @@ public class DiagnosisService {
         diagnosis.updateTotalScore(finalScore);
         diagnosis.updateTotalScoreToString(ratioString);
         diagnosisRepository.save(diagnosis);  // 업데이트된 totalScore 저장
+
+        return new SubmitDiagnosisRequest(diagnosisId);
     }
 
     @Transactional(readOnly = true)
