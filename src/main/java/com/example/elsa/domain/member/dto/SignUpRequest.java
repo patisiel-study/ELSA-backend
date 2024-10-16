@@ -1,5 +1,7 @@
 package com.example.elsa.domain.member.dto;
 
+import com.example.elsa.domain.member.entity.Career;
+import com.example.elsa.domain.member.entity.Country;
 import com.example.elsa.domain.member.entity.Role;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
@@ -28,4 +30,9 @@ public class SignUpRequest {
     @NotNull(message = "역할은 필수 입력 값입니다.")
     private Role role;
 
+    @NotNull(message = "직업은 필수 입력 값입니다.")
+    private Career career;
+
+    @NotNull(message = "국가는 필수 입력 값입니다.")
+    private Country country;
 }

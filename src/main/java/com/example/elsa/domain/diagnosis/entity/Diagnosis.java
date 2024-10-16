@@ -24,17 +24,22 @@ public class Diagnosis extends BaseEntity {
     @Column
     private String totalScoreToString;
 
+    @Column(nullable = false)
     private Long memberId;
+
+    @Column(nullable = false)
+    private String llmName;
 
     // totalScore를 변경하는 메서드
     public void updateTotalScore(Double totalScore) {
         this.totalScore = totalScore;
     }
 
-    public static Diagnosis createDiagnosis(Long memberId, Double totalScore) {
+    public static Diagnosis createDiagnosis(Long memberId, Double totalScore, String llmName) {
         return Diagnosis.builder()
                 .memberId(memberId)
                 .totalScore(totalScore)
+                .llmName(llmName)
                 .build();
     }
 

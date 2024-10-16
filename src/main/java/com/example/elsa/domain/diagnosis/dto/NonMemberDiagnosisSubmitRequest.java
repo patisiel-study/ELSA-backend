@@ -1,15 +1,17 @@
 package com.example.elsa.domain.diagnosis.dto;
 
+import com.example.elsa.domain.member.entity.Career;
+import com.example.elsa.domain.member.entity.Country;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 import java.util.List;
 
 @Getter
-@Setter
 @NoArgsConstructor
-public class DiagnosisSubmitRequest {
+public class NonMemberDiagnosisSubmitRequest {
     private List<AnswerDto> answers;
+    private Career career;
+    private Country country;
     private String llmName;
 }

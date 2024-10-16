@@ -10,4 +10,6 @@ public interface DiagnosisRepository extends JpaRepository<Diagnosis, Long> {
     Optional<Diagnosis> findByMemberIdAndDiagnosisId(Long memberId, Long diagnosisId);
 
     List<Diagnosis> findByMemberIdOrderByTotalScoreDesc(Long memberId);
+
+    Optional<Diagnosis> findByDiagnosisId(Long diagnosisId);
 }
