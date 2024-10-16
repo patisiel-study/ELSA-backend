@@ -23,15 +23,23 @@ public class Member {
     @Column(nullable = false)
     private String password;
 
+    @Column(nullable = false)
+    private Country country;
+
+    @Column(nullable = false)
+    private Career career;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Role role;
 
     @Builder
-    public Member(String email, String password, Role role) {
+    public Member(String email, String password, Role role, Country country, Career career) {
         this.email = email;
         this.password = password;
         this.role = role;
+        this.country = country;
+        this.career = career;
     }
 
     @Builder
@@ -40,7 +48,8 @@ public class Member {
                 .email(request.getEmail())
                 .password(encodedPassword)
                 .role(role)
+                .country(request.getCountry())
+                .career(request.getCareer())
                 .build();
     }
-
 }

@@ -88,6 +88,11 @@ public class MemberController {
         return ResponseEntity.ok(new ResponseDto<>("로그아웃 되었습니다.", null));
     }
 
+    @GetMapping("/countries")
+    public ResponseEntity<?> getAllCountries() {
+        return ResponseEntity.ok(new ResponseDto<>("국가 정보 조회 완료.", memberService.getAllCountries()));
+    }
+
     @Operation(summary = "swagger test", description = "swagger 테스트를 위한 엔드포인트 입니다.")
     @GetMapping("/test")
     public ResponseEntity<ResponseDto> test() {
