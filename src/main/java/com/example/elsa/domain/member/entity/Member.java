@@ -21,6 +21,9 @@ public class Member {
     private String email;
 
     @Column(nullable = false)
+    private String name;
+
+    @Column(nullable = false)
     private String password;
 
     @Column(nullable = false)
@@ -34,12 +37,13 @@ public class Member {
     private Role role;
 
     @Builder
-    public Member(String email, String password, Role role, Country country, Career career) {
+    public Member(String email, String password, Role role, Country country, Career career, String name) {
         this.email = email;
         this.password = password;
         this.role = role;
         this.country = country;
         this.career = career;
+        this.name = name;
     }
 
     @Builder
@@ -50,6 +54,7 @@ public class Member {
                 .role(role)
                 .country(request.getCountry())
                 .career(request.getCareer())
+                .name(request.getName())
                 .build();
     }
 }

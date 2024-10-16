@@ -1,5 +1,6 @@
 package com.example.elsa.domain.member.service;
 
+import com.example.elsa.domain.member.dto.GetMemberInfoRequest;
 import com.example.elsa.domain.member.dto.SignUpRequest;
 import com.example.elsa.domain.member.entity.Country;
 import com.example.elsa.domain.member.entity.Member;
@@ -59,6 +60,12 @@ public class MemberService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
+    }
+
+    public GetMemberInfoRequest getMemberInfo(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        return GetMemberInfoRequest.from(member);
     }
 
     public List<Country> getAllCountries() {
