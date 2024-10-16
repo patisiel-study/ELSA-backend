@@ -2,6 +2,7 @@ package com.example.elsa.domain.member.service;
 
 import com.example.elsa.domain.member.dto.GetMemberInfoRequest;
 import com.example.elsa.domain.member.dto.SignUpRequest;
+import com.example.elsa.domain.member.entity.Career;
 import com.example.elsa.domain.member.entity.Country;
 import com.example.elsa.domain.member.entity.Member;
 import com.example.elsa.domain.member.repository.MemberRepository;
@@ -70,5 +71,9 @@ public class MemberService {
 
     public List<Country> getAllCountries() {
         return Arrays.asList(Country.values());
+    }
+
+    public List<Career> getAllCareers() {
+        return Arrays.asList(Career.values());
     }
 }
