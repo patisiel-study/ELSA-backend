@@ -101,6 +101,12 @@ public class MemberController {
         return ResponseEntity.ok(new ResponseDto<>("국가 정보 조회 완료.", memberService.getAllCountries()));
     }
 
+    @Operation(summary = "직업 정보 조회", description = "모든 직업 정보 조회. 회원 가입 기능 구현 시 사용 바람.")
+    @GetMapping("/careers")
+    public ResponseEntity<?> getAllCareers() {
+        return ResponseEntity.ok(new ResponseDto<>("직업 정보 조회 완료.", memberService.getAllCareers()));
+    }
+
     @Operation(summary = "swagger test", description = "swagger 테스트를 위한 엔드포인트 입니다.")
     @GetMapping("/test")
     public ResponseEntity<ResponseDto> test() {

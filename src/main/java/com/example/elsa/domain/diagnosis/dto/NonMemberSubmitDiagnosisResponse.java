@@ -5,10 +5,10 @@ import lombok.NoArgsConstructor;
 
 @NoArgsConstructor
 @Getter
-public class SubmitDiagnosisRequest {
+public class NonMemberSubmitDiagnosisResponse {
     private Long diagnosisId;
 
-    public SubmitDiagnosisRequest(Long diagnosisId) {
+    public NonMemberSubmitDiagnosisResponse(Long diagnosisId) {
         this.diagnosisId = diagnosisId;
     }
 }
