@@ -1,6 +1,8 @@
 package com.example.elsa.domain.member.service;
 
+import com.example.elsa.domain.member.dto.GetMemberInfoRequest;
 import com.example.elsa.domain.member.dto.SignUpRequest;
+import com.example.elsa.domain.member.entity.Country;
 import com.example.elsa.domain.member.entity.Member;
 import com.example.elsa.domain.member.repository.MemberRepository;
 import com.example.elsa.global.auth.JwtToken;
@@ -15,6 +17,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Arrays;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -55,5 +60,15 @@ public class MemberService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
+    }
+
+    public GetMemberInfoRequest getMemberInfo(String email) {
+        Member member = memberRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
+        return GetMemberInfoRequest.from(member);
+    }
+
+    public List<Country> getAllCountries() {
+        return Arrays.asList(Country.values());
     }
 }

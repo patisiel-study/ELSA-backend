@@ -88,6 +88,19 @@ public class MemberController {
         return ResponseEntity.ok(new ResponseDto<>("로그아웃 되었습니다.", null));
     }
 
+    @Operation(summary = "멤버 정보 조회", description = "현재 로그인 된 계정의 정보 조회")
+    @GetMapping("/member/info")
+    public ResponseEntity<?> getMemberInfo(@AuthenticationPrincipal CustomUserDetails customUserDetails) {
+        String email = customUserDetails.getUsername();
+        return ResponseEntity.ok(new ResponseDto<>("회원 정보 조회 완료.", memberService.getMemberInfo(email)));
+    }
+
+    @Operation(summary = "국가 정보 조회", description = "모든 국가 정보 조회. 회원 가입 기능 구현 시 사용 바람.")
+    @GetMapping("/countries")
+    public ResponseEntity<?> getAllCountries() {
+        return ResponseEntity.ok(new ResponseDto<>("국가 정보 조회 완료.", memberService.getAllCountries()));
+    }
+
     @Operation(summary = "swagger test", description = "swagger 테스트를 위한 엔드포인트 입니다.")
     @GetMapping("/test")
     public ResponseEntity<ResponseDto> test() {
