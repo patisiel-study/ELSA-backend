@@ -1,36 +1,48 @@
 package com.example.elsa.domain.qna.entity;
 
-import jakarta.persistence.*;
+import java.util.ArrayList;
+import java.util.List;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.ArrayList;
-import java.util.List;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
 public class Standard {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+	@Id
+	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	private Long id;
 
-    private String name;
+	private String name;
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @JoinColumn(name = "standard_id")
-    private List<QnaSet> qnaSetList = new ArrayList<>();
+	@Column(length = 1000)
+	private String description;
 
-    public Standard(String name) {
-        this.name = name;
-    }
+	@OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+	@JoinColumn(name = "standard_id")
+	private List<QnaSet> qnaSetList = new ArrayList<>();
 
-    public void addQnaSet(QnaSet qnaSet) {
-        qnaSetList.add(qnaSet);
-    }
+	public Standard(String name, String description) {
+		this.name = name;
+		this.description = description;
+	}
 
-    public void removeQnaSet(QnaSet qnaSet) {
-        qnaSetList.remove(qnaSet);
-    }
+	public void addQnaSet(QnaSet qnaSet) {
+		qnaSetList.add(qnaSet);
+	}
+
+	public void removeQnaSet(QnaSet qnaSet) {
+		qnaSetList.remove(qnaSet);
+	}
 }
