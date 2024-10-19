@@ -53,3 +53,10 @@ gemini:
   api:
     url: ${GEMINI_API_URL}
     key: ${GEMINI_API_KEY}
+
+logging:
+  level:
+    root: INFO
+    com.example.elsa: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
