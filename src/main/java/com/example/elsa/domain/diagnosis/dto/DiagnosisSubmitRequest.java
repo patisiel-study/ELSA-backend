@@ -11,5 +11,4 @@ import java.util.List;
 @NoArgsConstructor
 public class DiagnosisSubmitRequest {
     private List<AnswerDto> answers;
-    private String llmName;
 }

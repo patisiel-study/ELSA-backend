@@ -16,5 +16,4 @@ public class DiagnosisHistoryResponse {
     private LocalDateTime createdAt;
     private Double totalScore;
     private String totalScoreToString;
-    private String llmName;
 }
