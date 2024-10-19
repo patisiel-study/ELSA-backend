@@ -286,8 +286,8 @@ public class DiagnosisService {
 			standardScoreDtoList,
 			noOrNotApplicableDtoList,
 			new TotalScoreDto(totalScoreString, totalScore),
-			member.getCareer(),
-			member.getCountry()
+			member.getCareer().getDescription(),
+			member.getCountry().getDescription()
 		);
 	}
 
@@ -321,8 +321,8 @@ public class DiagnosisService {
 			standardScoreDtoList,
 			noOrNotApplicableDtoList,
 			new TotalScoreDto(totalScoreString, totalScore),
-			member.getCareer(),
-			member.getCountry()
+			member.getCareer().getDescription(),
+			member.getCountry().getDescription()
 		);
 	}
 
