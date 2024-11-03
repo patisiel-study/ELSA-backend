@@ -26,6 +26,7 @@ import com.example.elsa.domain.diagnosis.entity.Answer;
 import com.example.elsa.domain.diagnosis.entity.Diagnosis;
 import com.example.elsa.domain.diagnosis.entity.DiagnosisQnaSet;
 import com.example.elsa.domain.diagnosis.entity.DiagnosisQuestion;
+import com.example.elsa.domain.diagnosis.entity.DiagnosisType;
 import com.example.elsa.domain.diagnosis.entity.NoOrNotApplicable;
 import com.example.elsa.domain.diagnosis.entity.StandardScore;
 import com.example.elsa.domain.diagnosis.repository.DiagnosisQnaSetRepository;
@@ -69,6 +70,7 @@ public class DiagnosisService {
 					DiagnosisQuestion diagnosisQuestion = DiagnosisQuestion.builder()
 						.question(question)
 						.standardName(standardName)
+						.diagnosisType(DiagnosisType.DEVELOPER)
 						.build();
 					diagnosisQuestionRepository.save(diagnosisQuestion);
 				});
@@ -79,12 +81,13 @@ public class DiagnosisService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<StandardQuestionsDto> getDiagnosisQuestionRepository() {
+	public List<StandardQuestionsDto> getDiagnosisQuestions() {
 		List<DiagnosisQuestion> diagnosisQuestionList = diagnosisQuestionRepository.findAll();
 
 		// diagnosisQuestionList를 standardName으로 그룹화하여 StandardQuestionsDto로 변환
 
 		return diagnosisQuestionList.stream()
+			.filter(diagnosisQuestion -> diagnosisQuestion.getDiagnosisType() == DiagnosisType.DEVELOPER)
 			.collect(Collectors.groupingBy(DiagnosisQuestion::getStandardName))
 			.entrySet().stream()
 			.map(entry -> new StandardQuestionsDto(entry.getKey(),
@@ -335,7 +338,10 @@ public class DiagnosisService {
 		Long memberId = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
 			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
 
-		List<Diagnosis> diagnosisList = diagnosisRepository.findByMemberIdOrderByTotalScoreDesc(memberId);
+		List<Diagnosis> diagnosisList = diagnosisRepository.findByMemberIdOrderByTotalScoreDesc(memberId)
+			.stream()
+			.filter(diagnosis -> diagnosis.getDiagnosisType() == DiagnosisType.DEVELOPER)
+			.toList();
 
 		return diagnosisList.stream()
 			.map(diagnosis -> new DiagnosisHistoryResponse(
@@ -346,4 +352,5 @@ public class DiagnosisService {
 				diagnosis.getLlmName()))
 			.toList();
 	}
+
 }
