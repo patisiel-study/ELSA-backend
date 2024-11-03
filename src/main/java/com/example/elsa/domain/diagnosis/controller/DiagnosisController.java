@@ -13,10 +13,12 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.elsa.domain.diagnosis.dto.DiagnosisForUserSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryForUserResponse;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryResponse;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
-import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisForUserSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
 import com.example.elsa.domain.diagnosis.service.DiagnosisService;
 import com.example.elsa.domain.diagnosis.service.DiagnosisServiceForUser;
@@ -75,7 +77,8 @@ public class DiagnosisController {
 		answer = YES, NO, NOT_APPLICABLE(미해당)
 		""")
 	@PostMapping("/developer/submit/user")
-	public ResponseEntity<ResponseDto<?>> submitDiagnosisResultForUser(@RequestBody DiagnosisSubmitRequest request) {
+	public ResponseEntity<ResponseDto<?>> submitDiagnosisResultForUser(
+		@RequestBody DiagnosisForUserSubmitRequest request) {
 		return ResponseEntity.ok(
 			new ResponseDto<>("자가진단 결과를 성공적으로 제출 완료했습니다.",
 				diagnosisServiceForUser.submitDiagnosisResultForUser(request)));
@@ -87,7 +90,7 @@ public class DiagnosisController {
 		""")
 	@PostMapping("/non-member/submit")
 	public ResponseEntity<ResponseDto<?>> submitNonMemberDiagnosisResult(
-		@RequestBody NonMemberDiagnosisSubmitRequest request) {
+		@RequestBody NonMemberDiagnosisForUserSubmitRequest request) {
 		return ResponseEntity.ok(new ResponseDto<>("비회원의 자가진단 결과를 성공적으로 제출 완료했습니다.",
 			diagnosisService.nonMemberSubmitDiagnosisResult(request)));
 	}
@@ -98,12 +101,12 @@ public class DiagnosisController {
 		""")
 	@PostMapping("/non-member/submit/user")
 	public ResponseEntity<ResponseDto<?>> submitNonMemberDiagnosisResultForUser(
-		@RequestBody NonMemberDiagnosisSubmitRequest request) {
+		@RequestBody NonMemberDiagnosisForUserSubmitRequest request) {
 		return ResponseEntity.ok(new ResponseDto<>("비회원의 자가진단 결과를 성공적으로 제출 완료했습니다.",
-			diagnosisService.nonMemberSubmitDiagnosisResult(request)));
+			diagnosisServiceForUser.nonMemberSubmitDiagnosisResultForUser(request)));
 	}
 
-	@Operation(summary = "회원의 자가진단 기록들 조회.", description = """
+	@Operation(summary = "회원의 자가진단 기록들 조회(개발자용)", description = """
 		높은 점수 순으로 정렬됨
 		answer = YES, NO, NOT_APPLICABLE(미해당)
 		""")
@@ -112,8 +115,18 @@ public class DiagnosisController {
 		return ResponseEntity.ok(diagnosisService.getDiagnosisHistory());
 	}
 
-	@Operation(summary = "회원의 단일 자가진단 결과 상세 조회", description = """
-		각 스탠다드별 점수(Yes로 대답한 개수), 미해당 및 미응답으로 대답한 문항의 QNA 리스트, 총점 반환
+	@Operation(summary = "회원의 자가진단 기록들 조회(사용자용)", description = """
+		높은 점수 순으로 정렬됨
+		answer = YES, NO, NOT_APPLICABLE(미해당)
+		""")
+	@GetMapping("/developer/result/history/user")
+	public ResponseEntity<List<DiagnosisHistoryForUserResponse>> getDiagnosisHistoryForUser() {
+		return ResponseEntity.ok(diagnosisServiceForUser.getDiagnosisHistoryForUser());
+	}
+
+	@Operation(summary = "회원의 단일 자가진단 결과 상세 조회(개발자, 사용자)", description = """
+		각 스탠다드별 점수(Yes로 대답한 개수), 미해당 및 미응답으로 대답한 문항의 QNA 리스트, 총점 반환.
+		사용자 자가 진단 결과의 경우 llmName은 렌더링 할 필요없음.
 		""")
 	@GetMapping("/developer/result/detail/{diagnosisId}")
 	public ResponseEntity<ResponseDto<?>> getSingleDiagnosisResult(@PathVariable Long diagnosisId) {
@@ -121,8 +134,9 @@ public class DiagnosisController {
 		return ResponseEntity.ok(new ResponseDto<>("회원의 단일 자가진단 결과를 조회합니다.", response));
 	}
 
-	@Operation(summary = "비회원의 단일 자가진단 결과 상세 조회", description = """
-		각 스탠다드별 점수(Yes로 대답한 개수), 미해당 및 미응답으로 대답한 문항의 QNA 리스트, 총점 반환
+	@Operation(summary = "비회원의 단일 자가진단 결과 상세 조회(개발자, 사용자)", description = """
+		각 스탠다드별 점수(Yes로 대답한 개수), 미해당 및 미응답으로 대답한 문항의 QNA 리스트, 총점 반환.
+		사용자 자가 진단 결과의 경우 llmName은 렌더링 할 필요없음.
 		""")
 	@GetMapping("/non-member/result/detail/{diagnosisId}")
 	public ResponseEntity<ResponseDto<?>> getSingleNonMemberDiagnosisResult(@PathVariable Long diagnosisId) {

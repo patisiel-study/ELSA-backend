@@ -15,7 +15,7 @@ import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryResponse;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
 import com.example.elsa.domain.diagnosis.dto.NoOrNotApplicableDto;
-import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisForUserSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.NonMemberSubmitDiagnosisResponse;
 import com.example.elsa.domain.diagnosis.dto.QnaPairDto;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
@@ -182,13 +182,14 @@ public class DiagnosisService {
 		return new SubmitDiagnosisResponse(diagnosisId);
 	}
 
-	public NonMemberSubmitDiagnosisResponse nonMemberSubmitDiagnosisResult(NonMemberDiagnosisSubmitRequest request) {
+	public NonMemberSubmitDiagnosisResponse nonMemberSubmitDiagnosisResult(
+		NonMemberDiagnosisForUserSubmitRequest request) {
 		// 비회원 생성
 		Member member = Member.createNonMember(request);
 		Long newNonMemberId = memberRepository.save(member).getMemberId();
 
 		// 진단 결과 생성 및 저장
-		Diagnosis diagnosis = Diagnosis.createDiagnosis(newNonMemberId, 0.0, request.getLlmName());
+		Diagnosis diagnosis = Diagnosis.createDiagnosisForUser(newNonMemberId, 0.0);
 		diagnosisRepository.save(diagnosis);  // 여기서 id가 생성됨
 
 		Long diagnosisId = diagnosis.getDiagnosisId();

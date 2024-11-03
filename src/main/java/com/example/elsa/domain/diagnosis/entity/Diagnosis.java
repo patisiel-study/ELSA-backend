@@ -55,11 +55,11 @@ public class Diagnosis extends BaseEntity {
 			.build();
 	}
 
-	public static Diagnosis createDiagnosisForUser(Long memberId, Double totalScore, String llmName) {
+	public static Diagnosis createDiagnosisForUser(Long memberId, Double totalScore) {
 		return Diagnosis.builder()
 			.memberId(memberId)
 			.totalScore(totalScore)
-			.llmName(llmName)
+			.llmName("user mode")
 			.diagnosisType(DiagnosisType.USER)
 			.build();
 	}
