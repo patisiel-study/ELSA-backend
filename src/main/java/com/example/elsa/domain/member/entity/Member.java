@@ -1,6 +1,6 @@
 package com.example.elsa.domain.member.entity;
 
-import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisForUserSubmitRequest;
 import com.example.elsa.domain.member.dto.SignUpRequest;
 
 import jakarta.persistence.Column;
@@ -72,7 +72,7 @@ public class Member {
 			.build();
 	}
 
-	public static Member createNonMember(NonMemberDiagnosisSubmitRequest request) {
+	public static Member createNonMember(NonMemberDiagnosisForUserSubmitRequest request) {
 		return Member.builder()
 			.email("nonMember")
 			.role(Role.NON_MEMBER)

@@ -33,7 +33,7 @@ public class SignUpRequest {
 	@NotNull(message = "역할은 필수 입력 값입니다.")
 	private Role role;
 
-	@Schema(description = "직업", example = "일반", required = true)
+	@Schema(description = "직업", example = "학생", required = true)
 	@NotNull(message = "직업은 필수 입력 값입니다.")
 	private String career;
 

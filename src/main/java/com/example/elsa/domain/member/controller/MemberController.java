@@ -40,7 +40,7 @@ public class MemberController {
 		password: 비밀번호는 최소 8자 이상, 영문자, 숫자, 특수문자를 각각 1개 이상 포함해야 합니다.
 		
 		role: 개발자, 기업 중에서 택 1. 관리자 계정의 경우 ADMIN(ADMIN은 프론트에서 구현되면 안됨)
-		career: "일반", "학생", "개발자", "기업", "기타" 중 택 1.
+		career: "학생", "개발자", "기업", "기타" 중 택 1.
 		""")
 	@ApiResponses(value = {
 		@ApiResponse(responseCode = "200", description = "회원가입 성공"),
