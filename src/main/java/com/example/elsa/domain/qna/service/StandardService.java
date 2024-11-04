@@ -416,30 +416,35 @@ public class StandardService {
 		return answer;
 	}
 
+	// calculateAndSaveScoresForModel 메서드도 수정
 	@Transactional
 	public Map<String, Object> calculateAndSaveScoresForModel(LLMModel model) {
 		Map<String, Object> scores = new HashMap<>();
 		List<Standard> standards = standardRepository.findAll();
 
 		for (Standard standard : standards) {
-			if (standard.getName() == null || standard.getName().trim().isEmpty()) {
+			String standardName = standard.getName();
+			// null이거나 빈 문자열이거나 매핑되지 않는 표준은 건너뛰기
+			if (standardName == null ||
+					standardName.trim().isEmpty() ||
+					mapStandardName(standardName) == null) {
 				continue;
 			}
+
 			try {
-				Map<String, Object> scoreResult = calculateScore(standard.getName(), model);
+				Map<String, Object> scoreResult = calculateScore(standardName, model);
 				double score = Double.parseDouble((String)scoreResult.get("score"));
-				ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standard.getName(), model)
+				ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standardName, model)
 						.orElse(new ModelScore(standard, model, score));
 				modelScore.setScore(score);
 				modelScoreRepository.save(modelScore);
 
-				scores.put(standard.getName(), Map.of("score", score));
-				log.info("Calculated and saved score for standard {} and model {}: {}", standard.getName(), model,
-						score);
+				scores.put(standardName, Map.of("score", score));
+				log.info("Calculated and saved score for standard {} and model {}: {}",
+						standardName, model, score);
 			} catch (Exception e) {
-				log.error("Error calculating and saving score for standard {} and model {}: {}", standard.getName(),
-						model, e.getMessage(), e);
-				scores.put(standard.getName(), "Error calculating and saving score");
+				log.error("Error calculating and saving score for standard {} and model {}: {}",
+						standardName, model, e.getMessage(), e);
 			}
 		}
 
@@ -447,6 +452,15 @@ public class StandardService {
 	}
 
 	private String mapStandardName(String standardName) {
+		// 허용하지 않을 표준명 리스트
+		Set<String> excludedStandards = Set.of("책임성", "안전성", "투명성");
+
+		// 제외할 표준명이면 null 반환
+		if (excludedStandards.contains(standardName)) {
+			return null;
+		}
+
+		// 기존 매핑 로직
 		switch(standardName) {
 			case "diversity":
 				return "다양성 존중";
