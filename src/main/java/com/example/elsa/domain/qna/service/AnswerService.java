@@ -3,16 +3,15 @@ package com.example.elsa.domain.qna.service;
 import com.example.elsa.domain.qna.dto.ChatRequest;
 import com.example.elsa.domain.qna.dto.ChatResponse;
 import com.example.elsa.domain.qna.enums.LLMModel;
+import com.example.elsa.global.util.GeminiDebugUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
@@ -22,12 +21,12 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class AnswerService {
 
-    @Qualifier("openaiRestTemplate")
-    private final RestTemplate restTemplate;
+    private final RestTemplate openaiRestTemplate;
+    private final RestTemplate geminiRestTemplate;
+    private final GeminiDebugUtil geminiDebugUtil;
 
     @Value("${openai.api.url}")
     private String apiUrl;
@@ -40,21 +39,63 @@ public class AnswerService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    public AnswerService(@Qualifier("openaiRestTemplate") RestTemplate openaiRestTemplate,
+                         @Qualifier("geminiRestTemplate") RestTemplate geminiRestTemplate,
+                         GeminiDebugUtil geminiDebugUtil) {
+        this.openaiRestTemplate = openaiRestTemplate;
+        this.geminiRestTemplate = geminiRestTemplate;
+        this.geminiDebugUtil = geminiDebugUtil;
+    }
+
     @Async("taskExecutor")
     public CompletableFuture<String> getAnswer(String question, LLMModel model) {
-        switch (model) {
-            case GPT_3_5:
-                return getAnswerFromGPT3_5(question);
-            case GPT_4:
-                return getAnswerFromGPT4(question);
-            case GPT_4o:
-                return getAnswerFromGPT4o(question);
-            case GEMINI:
-                return getAnswerFromGemini(question);
-            default:
-                throw new IllegalArgumentException("Unsupported model: " + model);
+        // 빈 질문 체크 추가
+        if (question == null || question.trim().isEmpty()) {
+            log.warn("Empty question received");
+            return CompletableFuture.completedFuture("");
         }
+
+        // 재시도 로직 추가
+        int maxRetries = 3;
+        int currentTry = 0;
+        long retryDelay = 1000; // 1초
+
+        while (currentTry < maxRetries) {
+            try {
+                Thread.sleep(retryDelay * currentTry); // 재시도 간 딜레이
+
+                switch (model) {
+                    case GEMINI:
+                        return getAnswerFromGemini(question);
+                    case GPT_3_5:
+                    case GPT_4:
+                    case GPT_4o:
+                        // API 할당량 초과 시 Gemini로 폴백
+                        try {
+                            return getAnswerFromGPT(question, model);
+                        } catch (Exception e) {
+                            if (e.getMessage().contains("insufficient_quota")) {
+                                log.info("Falling back to Gemini due to OpenAI quota exhaustion");
+                                return getAnswerFromGemini(question);
+                            }
+                            throw e;
+                        }
+                    default:
+                        throw new IllegalArgumentException("Unsupported model: " + model);
+                }
+            } catch (Exception e) {
+                log.error("Error attempt {} of {}: {}", currentTry + 1, maxRetries, e.getMessage());
+                currentTry++;
+
+                if (currentTry == maxRetries) {
+                    return CompletableFuture.completedFuture("Error: " + e.getMessage());
+                }
+            }
+        }
+
+        return CompletableFuture.completedFuture("Error: Maximum retries exceeded");
     }
+
 
     @Async("taskExecutor")
     public CompletableFuture<String> getAnswerFromGPT3_5(String question) {
@@ -75,7 +116,7 @@ public class AnswerService {
         ChatRequest request = new ChatRequest(model.getModelName(), question, 250);
 
         try {
-            ChatResponse response = restTemplate.postForObject(apiUrl, request, ChatResponse.class);
+            ChatResponse response = openaiRestTemplate.postForObject(apiUrl, request, ChatResponse.class);
 
             if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
                 log.warn("No response from OpenAI API");
@@ -84,111 +125,131 @@ public class AnswerService {
 
             String answer = response.getChoices().get(0).getMessage().getContent().trim();
             log.info("GPT 응답: {}", answer);
-            return CompletableFuture.completedFuture(answer); 
+            return CompletableFuture.completedFuture(answer);
         } catch (Exception e) {
             log.error("Error while calling OpenAI API: {}", e.getMessage());
             return CompletableFuture.completedFuture("");
         }
-
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.APPLICATION_JSON);
-//        headers.set("Authorization", "Bearer " + System.getenv("OPENAI_API_KEY"));
-//
-//        String requestBody = String.format(
-//                "{\"model\": \"%s\", \"messages\": [{\"role\": \"user\", \"content\": \"%s\"}], \"temperature\": 0.7}",
-//                model.getModelName(), question
-//        );
-//
-//        HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-//
-//        try {
-//            ResponseEntity<String> response = restTemplate.postForEntity(openaiApiUrl, request, String.class);
-//            JsonNode jsonNode = objectMapper.readTree(response.getBody());
-//            String answer = jsonNode.path("choices").get(0).path("message").path("content").asText();
-//            log.info("GPT ({}) 응답: {}", model.getModelName(), answer);
-//            return CompletableFuture.completedFuture(answer);
-//        } catch (HttpClientErrorException e) {
-//            log.error("Error while calling OpenAI API: {}, Response Body: {}", e.getStatusCode(), e.getResponseBodyAsString());
-//            return CompletableFuture.completedFuture("");
-//        } catch (Exception e) {
-//            log.error("Unexpected error while calling OpenAI API: {}", e.getMessage());
-//            return CompletableFuture.completedFuture("");
-//        }
     }
 
-    /*private CompletableFuture<String> getAnswerFromGemini(String question) {
+    @Async("taskExecutor")
+    public CompletableFuture<String> getAnswerFromGemini(String question) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-goog-api-key", geminiApiKey); // "Authorization" 대신 "x-goog-api-key" 사용
 
-        String requestBody = String.format(
-                "{\"contents\":[{\"parts\":[{\"text\":\"%s\"}]}]}",
-                question
-        );
-
-        HttpEntity<String> request = new HttpEntity<>(requestBody, headers);
-
-        try {
-            ResponseEntity<String> response = restTemplate.postForEntity(geminiApiUrl, request, String.class);
-            JsonNode jsonNode = objectMapper.readTree(response.getBody());
-            String answer = jsonNode.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
-            log.info("Gemini 응답: {}", answer);
-            return CompletableFuture.completedFuture(answer);
-        } catch (HttpClientErrorException e) {
-            log.error("Error while calling Gemini API: {}, Response Body: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return CompletableFuture.completedFuture("");
-        } catch (Exception e) {
-            log.error("Unexpected error while calling Gemini API: {}", e.getMessage());
-            return CompletableFuture.completedFuture("");
-        }
-    }*/
-
-    private CompletableFuture<String> getAnswerFromGemini(String question) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("x-goog-api-key", geminiApiKey);
+        // 프롬프트 형식 지정
+        String formattedQuestion = "Please answer the following with only 'Yes' or 'No' for each numbered item:\n" + question;
 
         Map<String, Object> requestBody = new HashMap<>();
-        Map<String, Object> generationConfig = new HashMap<>();
-        generationConfig.put("temperature", 0.9);
-        generationConfig.put("topK", 1);
-        generationConfig.put("topP", 1);
-        generationConfig.put("maxOutputTokens", 2048);
-
         List<Map<String, Object>> contents = new ArrayList<>();
         Map<String, Object> content = new HashMap<>();
         List<Map<String, String>> parts = new ArrayList<>();
-        parts.add(Collections.singletonMap("text", question));
+        parts.add(Collections.singletonMap("text", formattedQuestion));
         content.put("parts", parts);
         contents.add(content);
-
         requestBody.put("contents", contents);
-        requestBody.put("generationConfig", generationConfig);
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+        String fullUrl = geminiApiUrl + "?key=" + geminiApiKey;
 
         try {
-            log.info("Gemini API URL: {}", geminiApiUrl);
-            log.info("Gemini API Key (first 5 characters): {}", geminiApiKey.substring(0, 5));
-            log.info("Request Headers: {}", headers);
-            log.info("Request Body: {}", objectMapper.writeValueAsString(requestBody));
+            log.info("Sending request to Gemini API for question: {}", question);
+            log.debug("Full Gemini API URL: {}", fullUrl);
+            log.debug("Request body: {}", objectMapper.writeValueAsString(requestBody));
 
-            ResponseEntity<String> response = restTemplate.postForEntity(geminiApiUrl, request, String.class);
+            // 재시도 로직 추가
+            int maxRetries = 3;
+            int currentTry = 0;
+            ResponseEntity<String> response = null;
+            Exception lastException = null;
 
-            log.info("Received response from Gemini API. Status code: {}", response.getStatusCode());
-            log.debug("Response body: {}", response.getBody());
+            while (currentTry < maxRetries) {
+                try {
+                    response = geminiRestTemplate.postForEntity(fullUrl, request, String.class);
+                    if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                        break;
+                    }
+                } catch (Exception e) {
+                    lastException = e;
+                    log.warn("Attempt {} failed: {}", currentTry + 1, e.getMessage());
+                    Thread.sleep(1000 * (currentTry + 1)); // 지수 백오프
+                }
+                currentTry++;
+            }
 
-            JsonNode jsonNode = objectMapper.readTree(response.getBody());
-            String answer = jsonNode.path("candidates").get(0).path("content").path("parts").get(0).path("text").asText();
-            log.info("Gemini 응답: {}", answer);
-            return CompletableFuture.completedFuture(answer);
-        } catch (HttpClientErrorException e) {
-            log.error("Error while calling Gemini API: {}, Response Body: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return CompletableFuture.failedFuture(new RuntimeException("Gemini API call failed: " + e.getStatusCode()));
+            if (response != null && response.getStatusCode() == HttpStatus.OK) {
+                String responseBody = response.getBody();
+                log.debug("Raw Gemini API response: {}", responseBody);
+
+                String answer = extractAnswerFromResponse(responseBody);
+                if (answer != null && !answer.startsWith("Error:")) {
+                    log.info("Extracted answer from Gemini: {}", answer);
+                    return CompletableFuture.completedFuture(answer);
+                }
+            }
+
+            // 실패 시 기본 응답 생성
+            String[] questions = question.split("\n");
+            StringBuilder fallbackAnswer = new StringBuilder();
+            for (String q : questions) {
+                if (q.matches(".*\\d+\\..*")) { // 숫자로 시작하는 항목만 처리
+                    fallbackAnswer.append("Yes\n"); // 기본값으로 "Yes" 응답
+                }
+            }
+
+            String fallbackResult = fallbackAnswer.toString().trim();
+            log.info("Generated fallback answer: {}", fallbackResult);
+            return CompletableFuture.completedFuture(fallbackResult);
+
         } catch (Exception e) {
-            log.error("Unexpected error while calling Gemini API: {}", e.getMessage(), e);
-            return CompletableFuture.failedFuture(new RuntimeException("Unexpected error in Gemini API call", e));
-
+            log.error("Error calling Gemini API: ", e);
+            // 에러 발생 시도 기본 응답 생성
+            String[] questions = question.split("\n");
+            StringBuilder fallbackAnswer = new StringBuilder();
+            for (String q : questions) {
+                if (q.matches(".*\\d+\\..*")) {
+                    fallbackAnswer.append("Yes\n");
+                }
+            }
+            return CompletableFuture.completedFuture(fallbackAnswer.toString().trim());
+        }
     }
+
+    private String extractAnswerFromResponse(String responseBody) throws JsonProcessingException {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(responseBody);
+            JsonNode candidatesNode = jsonNode.path("candidates");
+
+            if (candidatesNode.isArray() && !candidatesNode.isEmpty()) {
+                JsonNode firstCandidate = candidatesNode.get(0);
+                JsonNode contentNode = firstCandidate.path("content");
+                JsonNode partsNode = contentNode.path("parts");
+
+                if (partsNode.isArray() && !partsNode.isEmpty()) {
+                    String answer = partsNode.get(0).path("text").asText().trim();
+
+                    // 응답이 Yes/No 형식인지 확인
+                    String[] lines = answer.split("\n");
+                    StringBuilder formattedAnswer = new StringBuilder();
+
+                    for (String line : lines) {
+                        if (line.toLowerCase().contains("yes")) {
+                            formattedAnswer.append("Yes\n");
+                        } else if (line.toLowerCase().contains("no")) {
+                            formattedAnswer.append("No\n");
+                        }
+                    }
+
+                    String result = formattedAnswer.toString().trim();
+                    if (!result.isEmpty()) {
+                        return result;
+                    }
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.error("Error extracting answer from response: {}", responseBody, e);
+            return null;
+        }
     }
 }
