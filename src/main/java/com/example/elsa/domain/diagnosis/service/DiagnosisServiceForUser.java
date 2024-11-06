@@ -11,17 +11,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryResponse;
-import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
-import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
-import com.example.elsa.domain.diagnosis.dto.NoOrNotApplicableDto;
+import com.example.elsa.domain.diagnosis.dto.DiagnosisForUserSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryForUserResponse;
 import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisForUserSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.NonMemberSubmitDiagnosisResponse;
 import com.example.elsa.domain.diagnosis.dto.QnaPairDto;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
-import com.example.elsa.domain.diagnosis.dto.StandardScoreDto;
 import com.example.elsa.domain.diagnosis.dto.SubmitDiagnosisResponse;
-import com.example.elsa.domain.diagnosis.dto.TotalScoreDto;
 import com.example.elsa.domain.diagnosis.entity.Answer;
 import com.example.elsa.domain.diagnosis.entity.Diagnosis;
 import com.example.elsa.domain.diagnosis.entity.DiagnosisQnaSet;
@@ -49,16 +45,17 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 @Transactional
-public class DiagnosisService {
-	private final DiagnosisRepository diagnosisRepository;
+public class DiagnosisServiceForUser {
+
 	private final DiagnosisQuestionRepository diagnosisQuestionRepository;
-	private final MemberRepository memberRepository;
+	private final StandardRepository standardRepository;
 	private final DiagnosisQnaSetRepository diagnosisQnaSetRepository;
+	private final DiagnosisRepository diagnosisRepository;
 	private final StandardScoreRepository standardScoreRepository;
 	private final NoOrNotApplicableRepository noOrNotApplicableRepository;
-	private final StandardRepository standardRepository;
+	private final MemberRepository memberRepository;
 
-	public void createDiagnosisQuestions(MultipartFile file) {
+	public void createDiagnosisQuestionsForUser(MultipartFile file) {
 		try {
 			Map<String, List<String>> data = ExcelHelper.parseDiagnosisQnaFile(file);
 
@@ -70,7 +67,7 @@ public class DiagnosisService {
 					DiagnosisQuestion diagnosisQuestion = DiagnosisQuestion.builder()
 						.question(question)
 						.standardName(standardName)
-						.diagnosisType(DiagnosisType.DEVELOPER)
+						.diagnosisType(DiagnosisType.USER)
 						.build();
 					diagnosisQuestionRepository.save(diagnosisQuestion);
 				});
@@ -81,13 +78,13 @@ public class DiagnosisService {
 	}
 
 	@Transactional(readOnly = true)
-	public List<StandardQuestionsDto> getDiagnosisQuestions() {
+	public List<StandardQuestionsDto> getDiagnosisQuestionsForUser() {
 		List<DiagnosisQuestion> diagnosisQuestionList = diagnosisQuestionRepository.findAll();
 
 		// diagnosisQuestionList를 standardName으로 그룹화하여 StandardQuestionsDto로 변환
 
 		return diagnosisQuestionList.stream()
-			.filter(diagnosisQuestion -> diagnosisQuestion.getDiagnosisType() == DiagnosisType.DEVELOPER)
+			.filter(diagnosisQuestion -> diagnosisQuestion.getDiagnosisType() == DiagnosisType.USER)
 			.collect(Collectors.groupingBy(DiagnosisQuestion::getStandardName))
 			.entrySet().stream()
 			.map(entry -> new StandardQuestionsDto(entry.getKey(),
@@ -106,12 +103,12 @@ public class DiagnosisService {
 			.getDescription();
 	}
 
-	public SubmitDiagnosisResponse submitDiagnosisResult(DiagnosisSubmitRequest request) {
+	public SubmitDiagnosisResponse submitDiagnosisResultForUser(DiagnosisForUserSubmitRequest request) {
 		// 진단 결과 생성 및 저장
 		Long memberId = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
 			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
 
-		Diagnosis diagnosis = Diagnosis.createDiagnosis(memberId, 0.0, request.getLlmName());
+		Diagnosis diagnosis = Diagnosis.createDiagnosisForUser(memberId, 0.0);
 		diagnosisRepository.save(diagnosis);  // 여기서 id가 생성됨
 
 		Long diagnosisId = diagnosis.getDiagnosisId();
@@ -182,7 +179,30 @@ public class DiagnosisService {
 		return new SubmitDiagnosisResponse(diagnosisId);
 	}
 
-	public NonMemberSubmitDiagnosisResponse nonMemberSubmitDiagnosisResult(
+	private DiagnosisQuestion getDiagnosisQnaSet(Long questionId) {
+		return diagnosisQuestionRepository.findById(questionId)
+			.orElseThrow(() -> new CustomException(ErrorCode.DIAGNOSIS_QUESTION_NOT_FOUND));
+	}
+
+	public List<DiagnosisHistoryForUserResponse> getDiagnosisHistoryForUser() {
+		Long memberId = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
+			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
+
+		List<Diagnosis> diagnosisList = diagnosisRepository.findByMemberIdOrderByTotalScoreDesc(memberId)
+			.stream()
+			.filter(diagnosis -> diagnosis.getDiagnosisType() == DiagnosisType.USER)
+			.toList();
+
+		return diagnosisList.stream()
+			.map(diagnosis -> new DiagnosisHistoryForUserResponse(
+				diagnosis.getDiagnosisId(),
+				diagnosis.getCreatedAt(),
+				diagnosis.getTotalScore(),
+				diagnosis.getTotalScoreToString()))
+			.toList();
+	}
+
+	public NonMemberSubmitDiagnosisResponse nonMemberSubmitDiagnosisResultForUser(
 		NonMemberDiagnosisForUserSubmitRequest request) {
 		// 비회원 생성
 		Member member = Member.createNonMember(request);
@@ -259,99 +279,4 @@ public class DiagnosisService {
 
 		return new NonMemberSubmitDiagnosisResponse(diagnosisId);
 	}
-
-	@Transactional(readOnly = true)
-	public DiagnosisSubmitResponse getDiagnosisDetails(Long diagnosisId) {
-		Member member = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
-			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-		Long memberId = member.getMemberId();
-
-		Diagnosis diagnosis = diagnosisRepository.findByMemberIdAndDiagnosisId(memberId, diagnosisId)
-			.orElseThrow(() -> new CustomException(ErrorCode.DIAGNOSIS_NOT_FOUND));
-
-		List<StandardScoreDto> standardScoreDtoList = standardScoreRepository.findByDiagnosisId(diagnosisId)
-			.stream()
-			.map(req -> new StandardScoreDto(req.getStandardName(), req.getScore()))
-			.toList();
-
-		List<NoOrNotApplicableDto> noOrNotApplicableDtoList = noOrNotApplicableRepository.findByDiagnosisId(diagnosisId)
-			.stream()
-			.map(req -> new NoOrNotApplicableDto(
-				req.getStandardName(),
-				getStandardDescription(req.getStandardName()),
-				req.getQnaPairDtoList()))
-			.toList();
-
-		String totalScoreString = diagnosis.getTotalScoreToString();
-		double totalScore = diagnosis.getTotalScore();
-
-		return new DiagnosisSubmitResponse(
-			diagnosis.getLlmName(),
-			standardScoreDtoList,
-			noOrNotApplicableDtoList,
-			new TotalScoreDto(totalScoreString, totalScore),
-			member.getCareer().getDescription(),
-			member.getCountry().getDescription()
-		);
-	}
-
-	@Transactional(readOnly = true)
-	public DiagnosisSubmitResponse getDiagnosisDetailsByNonMember(Long diagnosisId) {
-
-		Diagnosis diagnosis = diagnosisRepository.findByDiagnosisId(diagnosisId)
-			.orElseThrow(() -> new CustomException(ErrorCode.DIAGNOSIS_NOT_FOUND));
-
-		Member member = memberRepository.findByMemberId(diagnosis.getMemberId())
-			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND));
-
-		List<StandardScoreDto> standardScoreDtoList = standardScoreRepository.findByDiagnosisId(diagnosisId)
-			.stream()
-			.map(req -> new StandardScoreDto(req.getStandardName(), req.getScore()))
-			.toList();
-
-		List<NoOrNotApplicableDto> noOrNotApplicableDtoList = noOrNotApplicableRepository.findByDiagnosisId(diagnosisId)
-			.stream()
-			.map(req -> new NoOrNotApplicableDto(
-				req.getStandardName(),
-				getStandardDescription(req.getStandardName()),
-				req.getQnaPairDtoList()))
-			.toList();
-
-		String totalScoreString = diagnosis.getTotalScoreToString();
-		double totalScore = diagnosis.getTotalScore();
-
-		return new DiagnosisSubmitResponse(
-			diagnosis.getLlmName(),
-			standardScoreDtoList,
-			noOrNotApplicableDtoList,
-			new TotalScoreDto(totalScoreString, totalScore),
-			member.getCareer().getDescription(),
-			member.getCountry().getDescription()
-		);
-	}
-
-	private DiagnosisQuestion getDiagnosisQnaSet(Long questionId) {
-		return diagnosisQuestionRepository.findById(questionId)
-			.orElseThrow(() -> new CustomException(ErrorCode.DIAGNOSIS_QUESTION_NOT_FOUND));
-	}
-
-	public List<DiagnosisHistoryResponse> getDiagnosisHistory() {
-		Long memberId = memberRepository.findByEmail(SecurityUtil.getCurrentMemberEmail())
-			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
-
-		List<Diagnosis> diagnosisList = diagnosisRepository.findByMemberIdOrderByTotalScoreDesc(memberId)
-			.stream()
-			.filter(diagnosis -> diagnosis.getDiagnosisType() == DiagnosisType.DEVELOPER)
-			.toList();
-
-		return diagnosisList.stream()
-			.map(diagnosis -> new DiagnosisHistoryResponse(
-				diagnosis.getDiagnosisId(),
-				diagnosis.getCreatedAt(),
-				diagnosis.getTotalScore(),
-				diagnosis.getTotalScoreToString(),
-				diagnosis.getLlmName()))
-			.toList();
-	}
-
 }

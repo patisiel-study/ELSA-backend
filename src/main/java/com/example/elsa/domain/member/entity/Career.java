@@ -1,7 +1,7 @@
 package com.example.elsa.domain.member.entity;
 
 public enum Career {
-	NORMAL("일반"), STUDENT("학생"), DEVELOPER("개발자"), COMPANY("기업"), ETC("기타");
+	STUDENT("학생"), DEVELOPER("개발자"), COMPANY("기업"), ETC("기타");
 
 	private final String description;
 
