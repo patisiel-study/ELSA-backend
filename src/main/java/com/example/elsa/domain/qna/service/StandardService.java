@@ -482,14 +482,39 @@ public class StandardService {
 	}
 
 	public Map<LLMModel, Map<String, Object>> getAllScores() {
+		// 제외할 표준명 Set 정의
+		Set<String> excludedStandards = Set.of("책임성", "안전성", "투명성");
+
+		// 원하는 표준 순서 정의
+		List<String> orderedStandards = Arrays.asList(
+				"인권보장",
+				"프라이버시 보호",
+				"다양성 존중",
+				"침해 금지",
+				"공공성",
+				"연대성",
+				"데이터 관리"
+		);
+
 		Map<LLMModel, Map<String, Object>> allScores = new EnumMap<>(LLMModel.class);
-		List<Standard> standards = standardRepository.findAllValidStandards(); // 유효한 표준만 가져옵니다.
+		List<Standard> standards = standardRepository.findAllValidStandards();
 
 		for (LLMModel model : LLMModel.values()) {
-			Map<String, Object> modelScores = new HashMap<>();
-			for (Standard standard : standards) {
-				if (standard.getName() != null && !standard.getName().trim().isEmpty()) {
-					ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standard.getName(), model)
+			// LinkedHashMap 사용하여 순서 유지
+			Map<String, Object> modelScores = new LinkedHashMap<>();
+
+			// 정의된 순서대로 표준 처리
+			for (String standardName : orderedStandards) {
+				Standard standard = standards.stream()
+						.filter(s -> s.getName() != null &&
+								s.getName().equals(standardName) &&
+								!excludedStandards.contains(s.getName()))
+						.findFirst()
+						.orElse(null);
+
+				if (standard != null) {
+					ModelScore modelScore = modelScoreRepository
+							.findByStandardNameAndModel(standard.getName(), model)
 							.orElse(new ModelScore(standard, model, 0.0));
 					modelScores.put(standard.getName(), Map.of(
 							"score", modelScore.getScore()
