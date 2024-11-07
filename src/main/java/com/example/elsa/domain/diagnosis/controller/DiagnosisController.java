@@ -19,6 +19,7 @@ import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryResponse;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
 import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisForUserSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
 import com.example.elsa.domain.diagnosis.service.DiagnosisService;
 import com.example.elsa.domain.diagnosis.service.DiagnosisServiceForUser;
@@ -90,7 +91,7 @@ public class DiagnosisController {
 		""")
 	@PostMapping("/non-member/submit")
 	public ResponseEntity<ResponseDto<?>> submitNonMemberDiagnosisResult(
-		@RequestBody NonMemberDiagnosisForUserSubmitRequest request) {
+		@RequestBody NonMemberDiagnosisSubmitRequest request) {
 		return ResponseEntity.ok(new ResponseDto<>("비회원의 자가진단 결과를 성공적으로 제출 완료했습니다.",
 			diagnosisService.nonMemberSubmitDiagnosisResult(request)));
 	}

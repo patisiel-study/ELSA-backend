@@ -3,8 +3,10 @@ package com.example.elsa.domain.diagnosis.service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -15,7 +17,7 @@ import com.example.elsa.domain.diagnosis.dto.DiagnosisHistoryResponse;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.DiagnosisSubmitResponse;
 import com.example.elsa.domain.diagnosis.dto.NoOrNotApplicableDto;
-import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisForUserSubmitRequest;
+import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisSubmitRequest;
 import com.example.elsa.domain.diagnosis.dto.NonMemberSubmitDiagnosisResponse;
 import com.example.elsa.domain.diagnosis.dto.QnaPairDto;
 import com.example.elsa.domain.diagnosis.dto.StandardQuestionsDto;
@@ -112,7 +114,7 @@ public class DiagnosisService {
 			.orElseThrow(() -> new CustomException(ErrorCode.MEMBER_NOT_FOUND)).getMemberId();
 
 		Diagnosis diagnosis = Diagnosis.createDiagnosis(memberId, 0.0, request.getLlmName());
-		diagnosisRepository.save(diagnosis);  // 여기서 id가 생성됨
+		diagnosisRepository.save(diagnosis);
 
 		Long diagnosisId = diagnosis.getDiagnosisId();
 
@@ -120,11 +122,17 @@ public class DiagnosisService {
 		Map<String, Integer> yesCounts = new HashMap<>();
 		Map<String, List<QnaPairDto>> noOrNotApplicableMap = new HashMap<>();
 
+		// 모든 표준 항목을 추적하기 위한 Set
+		Set<String> allStandards = new HashSet<>();
+
 		request.getAnswers().forEach(answerDto -> {
 				log.debug("answer: {}", answerDto.getAnswer());
 				DiagnosisQuestion diagnosisQuestion = getDiagnosisQnaSet(answerDto.getQuestionId());
 				String question = diagnosisQuestion.getQuestion();
 				String standardName = diagnosisQuestion.getStandardName();
+
+				// 모든 표준 항목 추적
+				allStandards.add(standardName);
 
 				DiagnosisQnaSet diagnosisQnaSet = DiagnosisQnaSet.builder()
 					.question(question)
@@ -147,11 +155,11 @@ public class DiagnosisService {
 			}
 		);
 
-		// 각 standard별로 점수 계산 및 저장
-		yesCounts.forEach((standardName, yesCount) -> {
+		// 모든 표준 항목에 대해 StandardScore 생성 및 저장
+		allStandards.forEach(standardName -> {
 			StandardScore standardScore = StandardScore.builder()
 				.standardName(standardName)
-				.score(yesCount)
+				.score(yesCounts.getOrDefault(standardName, 0))  // YES 답변이 없으면 0점
 				.diagnosisId(diagnosisId)
 				.build();
 			standardScoreRepository.save(standardScore);
@@ -177,20 +185,20 @@ public class DiagnosisService {
 		double finalScore = ratioDouble * 100;
 		diagnosis.updateTotalScore(finalScore);
 		diagnosis.updateTotalScoreToString(ratioString);
-		diagnosisRepository.save(diagnosis);  // 업데이트된 totalScore 저장
+		diagnosisRepository.save(diagnosis);
 
 		return new SubmitDiagnosisResponse(diagnosisId);
 	}
 
 	public NonMemberSubmitDiagnosisResponse nonMemberSubmitDiagnosisResult(
-		NonMemberDiagnosisForUserSubmitRequest request) {
+		NonMemberDiagnosisSubmitRequest request) {
 		// 비회원 생성
-		Member member = Member.createNonMember(request);
+		Member member = Member.createNonMember(request.getCareer(), request.getCountry());
 		Long newNonMemberId = memberRepository.save(member).getMemberId();
 
 		// 진단 결과 생성 및 저장
-		Diagnosis diagnosis = Diagnosis.createDiagnosisForUser(newNonMemberId, 0.0);
-		diagnosisRepository.save(diagnosis);  // 여기서 id가 생성됨
+		Diagnosis diagnosis = Diagnosis.createDiagnosis(newNonMemberId, 0.0, request.getLlmName());
+		diagnosisRepository.save(diagnosis);
 
 		Long diagnosisId = diagnosis.getDiagnosisId();
 
@@ -198,11 +206,17 @@ public class DiagnosisService {
 		Map<String, Integer> yesCounts = new HashMap<>();
 		Map<String, List<QnaPairDto>> noOrNotApplicableMap = new HashMap<>();
 
+		// 모든 표준 항목을 추적하기 위한 Set
+		Set<String> allStandards = new HashSet<>();
+
 		request.getAnswers().forEach(answerDto -> {
 				log.debug("answer: {}", answerDto.getAnswer());
 				DiagnosisQuestion diagnosisQuestion = getDiagnosisQnaSet(answerDto.getQuestionId());
 				String question = diagnosisQuestion.getQuestion();
 				String standardName = diagnosisQuestion.getStandardName();
+
+				// 모든 표준 항목 추적
+				allStandards.add(standardName);
 
 				DiagnosisQnaSet diagnosisQnaSet = DiagnosisQnaSet.builder()
 					.question(question)
@@ -225,11 +239,11 @@ public class DiagnosisService {
 			}
 		);
 
-		// 각 standard별로 점수 계산 및 저장
-		yesCounts.forEach((standardName, yesCount) -> {
+		// 모든 표준 항목에 대해 StandardScore 생성 및 저장
+		allStandards.forEach(standardName -> {
 			StandardScore standardScore = StandardScore.builder()
 				.standardName(standardName)
-				.score(yesCount)
+				.score(yesCounts.getOrDefault(standardName, 0))  // YES 답변이 없으면 0점
 				.diagnosisId(diagnosisId)
 				.build();
 			standardScoreRepository.save(standardScore);
@@ -255,7 +269,7 @@ public class DiagnosisService {
 		double finalScore = ratioDouble * 100;
 		diagnosis.updateTotalScore(finalScore);
 		diagnosis.updateTotalScoreToString(ratioString);
-		diagnosisRepository.save(diagnosis);  // 업데이트된 totalScore 저장
+		diagnosisRepository.save(diagnosis);
 
 		return new NonMemberSubmitDiagnosisResponse(diagnosisId);
 	}
