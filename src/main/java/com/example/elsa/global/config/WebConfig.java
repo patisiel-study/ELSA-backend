@@ -13,7 +13,7 @@ public class WebConfig implements WebMvcConfigurer {
 	@Override
 	public void addCorsMappings(CorsRegistry registry) {
 		registry.addMapping("/**")
-			.allowedOrigins("http://humaind.co.kr:3000") // 리액트 애플리케이션의 도메인 및 포트 번호
+			.allowedOrigins("https://humaind.co.kr", "http://localhost:3000") // 리액트 애플리케이션의 도메인 및 포트 번호
 			.allowedMethods("*") // OPTIONS 메서드 추가
 			.allowedHeaders("*")
 			.allowCredentials(true)
