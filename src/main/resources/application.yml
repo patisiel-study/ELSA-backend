@@ -1,10 +1,10 @@
 spring:
+  # server 설정은 최상위로 이동해야 함
   datasource:
     driver-class-name: net.sf.log4jdbc.sql.jdbcapi.DriverSpy
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
-
 
   jpa:
     hibernate:
@@ -26,24 +26,35 @@ spring:
 
   jwt:
     secret: ${JWT_SECRET}
-    access-token-validity: ${JWT_AT}  # 1 hour in milliseconds
-    refresh-token-validity: ${JWT_RT}  # 7 days in milliseconds
+    access-token-validity: ${JWT_AT}
+    refresh-token-validity: ${JWT_RT}
 
-  springdoc:
-    swagger-ui:
-      path: /swagger-ui.html
-      groups-order: DESC
-      operationsSorter: method
-      disable-swagger-default-url: true
-      display-request-duration: true
-      defaultModelsExpandDepth: -1
-    api-docs:
-      path: /api
-      show-actuator: true
-    default-consumes-media-type: application/json
-    default-produces-media-type: application/json
-    paths-to-match:
-      - /**
+# server 설정은 spring 밖으로
+server:
+  forward-headers-strategy: NATIVE
+  tomcat:
+    remoteip:
+      remote-ip-header: X-Forwarded-For
+      protocol-header: X-Forwarded-Proto
+
+# springdoc 설정도 spring 밖으로
+springdoc:
+  swagger-ui:
+    url-protocol: https
+    path: /swagger-ui.html
+    groups-order: DESC
+    operationsSorter: method
+    disable-swagger-default-url: true
+    display-request-duration: true
+    defaultModelsExpandDepth: -1
+  api-docs:
+    path: /api
+    show-actuator: true
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  paths-to-match:
+    - /**
+
 openai:
   api:
     url: ${OPENAI_API_URL}
