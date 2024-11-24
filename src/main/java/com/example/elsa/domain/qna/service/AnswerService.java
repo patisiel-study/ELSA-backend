@@ -115,20 +115,43 @@ public class AnswerService {
     private CompletableFuture<String> getAnswerFromGPT(String question, LLMModel model) {
         ChatRequest request = new ChatRequest(model.getModelName(), question, 250);
 
+        // 인권보장 관련 질문인 경우 프롬프트 수정
+        if (model == LLMModel.GPT_4o && question.contains("인권")) {
+            // 질문을 더 구체적이고 윤리적 평가 관점으로 재구성
+            String modifiedQuestion = "Please evaluate from an ethical AI assessment perspective:\n" + question;
+            request = new ChatRequest(model.getModelName(), modifiedQuestion, 250);
+            log.info("Modified question for human rights assessment: {}", modifiedQuestion);
+        }
+
         try {
             ChatResponse response = openaiRestTemplate.postForObject(apiUrl, request, ChatResponse.class);
 
             if (response == null || response.getChoices() == null || response.getChoices().isEmpty()) {
-                log.warn("No response from OpenAI API");
+                log.error("No response from OpenAI API for model: {}, question: {}", model, question);
                 return CompletableFuture.completedFuture("");
             }
 
             String answer = response.getChoices().get(0).getMessage().getContent().trim();
-            log.info("GPT 응답: {}", answer);
+
+            // 응답 거부 감지 및 대체 프롬프트 시도
+            if (answer.toLowerCase().contains("i'm sorry") || answer.toLowerCase().contains("can't assist")) {
+                log.warn("Model {} refused to answer. Trying with alternative prompt...", model);
+
+                // 대체 프롬프트로 재시도
+                String alternativeQuestion = "From an AI ethics evaluation perspective, please assess with Yes/No:\n" + question;
+                ChatRequest retryRequest = new ChatRequest(model.getModelName(), alternativeQuestion, 250);
+
+                ChatResponse retryResponse = openaiRestTemplate.postForObject(apiUrl, retryRequest, ChatResponse.class);
+                if (retryResponse != null && retryResponse.getChoices() != null && !retryResponse.getChoices().isEmpty()) {
+                    answer = retryResponse.getChoices().get(0).getMessage().getContent().trim();
+                    log.info("Received response with alternative prompt: {}", answer);
+                }
+            }
+
             return CompletableFuture.completedFuture(answer);
         } catch (Exception e) {
-            log.error("Error while calling OpenAI API: {}", e.getMessage());
-            return CompletableFuture.completedFuture("");
+            log.error("Error calling OpenAI API: {}", e.getMessage());
+            throw e;
         }
     }
 
