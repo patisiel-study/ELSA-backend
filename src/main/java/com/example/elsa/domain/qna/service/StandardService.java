@@ -1,7 +1,16 @@
 package com.example.elsa.domain.qna.service;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -54,44 +63,44 @@ public class StandardService {
 		List<Standard> standards = standardRepository.findAll(); //DB에서 모든 표준 객체 가져오기
 
 		Map<String, Double> result = standards.stream().collect(Collectors.toMap( ///standars리스트를 스트림으로 변환
-				Standard::getName,
-				standard -> {
-					AtomicInteger initialScore = new AtomicInteger(
-							standard.getQnaSetList().size()); //초기 점수와 초기 점수 qna 세트 개수
-					AtomicInteger adjustedScore = new AtomicInteger(initialScore.get()); //조정될 점수 설정
+			Standard::getName,
+			standard -> {
+				AtomicInteger initialScore = new AtomicInteger(
+					standard.getQnaSetList().size()); //초기 점수와 초기 점수 qna 세트 개수
+				AtomicInteger adjustedScore = new AtomicInteger(initialScore.get()); //조정될 점수 설정
 
-					List<CompletableFuture<Void>> futures = standard.getQnaSetList().stream() //QnA 세트에 대한 비동기 작업 리스트
-							.map(qnaSet -> pythonExecutor.executeSentimentAnalysis(
-											qnaSet.getAnswer()) //QnA 세트의 답변에 대해 감성 분석을 비동기적으로 실행
-									.thenAccept(analysisResult -> { //감성 분석 결과를 처리하는 콜백 함수를 정의
-										if (analysisResult == null || analysisResult.get("average_compound_score") == null
-												|| (double)analysisResult.get("average_compound_score") == -2.0) { //유효?
-											initialScore.decrementAndGet();
-											adjustedScore.decrementAndGet(); //감소
-											log.info("Standard {} has a QnA with invalid sentiment. Adjusted score: {}",
-													standard.getName(), adjustedScore.get());
-										} else {
-											double averageScore = (double)analysisResult.get("average_compound_score"); //유효 점수가져오기
+				List<CompletableFuture<Void>> futures = standard.getQnaSetList().stream() //QnA 세트에 대한 비동기 작업 리스트
+					.map(qnaSet -> pythonExecutor.executeSentimentAnalysis(
+							qnaSet.getAnswer()) //QnA 세트의 답변에 대해 감성 분석을 비동기적으로 실행
+						.thenAccept(analysisResult -> { //감성 분석 결과를 처리하는 콜백 함수를 정의
+							if (analysisResult == null || analysisResult.get("average_compound_score") == null
+								|| (double)analysisResult.get("average_compound_score") == -2.0) { //유효?
+								initialScore.decrementAndGet();
+								adjustedScore.decrementAndGet(); //감소
+								log.info("Standard {} has a QnA with invalid sentiment. Adjusted score: {}",
+									standard.getName(), adjustedScore.get());
+							} else {
+								double averageScore = (double)analysisResult.get("average_compound_score"); //유효 점수가져오기
 
-											if (averageScore > 0) {
-												adjustedScore.decrementAndGet(); //평균 점수가 양수(긍정적)인 경우, 조정 점수를 감소시킵니다.
-												log.info("Standard {} has negative sentiment for QnA. Adjusted score: {}",
-														standard.getName(), adjustedScore.get());
-											}
+								if (averageScore > 0) {
+									adjustedScore.decrementAndGet(); //평균 점수가 양수(긍정적)인 경우, 조정 점수를 감소시킵니다.
+									log.info("Standard {} has negative sentiment for QnA. Adjusted score: {}",
+										standard.getName(), adjustedScore.get());
+								}
 
-											// QnaSet에 감성 분석 결과를 저장
-											qnaSet.setSentimentScore(averageScore); //점수 계산
-											qnaSetRepository.save(qnaSet);
-										}
-									}))
-							.collect(Collectors.toList());
+								// QnaSet에 감성 분석 결과를 저장
+								qnaSet.setSentimentScore(averageScore); //점수 계산
+								qnaSetRepository.save(qnaSet);
+							}
+						}))
+					.collect(Collectors.toList());
 
-					CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+				CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
-					double finalScore = (double)adjustedScore.get() / initialScore.get();
-					log.info("Standard {} final score: {}", standard.getName(), finalScore);
-					return finalScore;
-				}
+				double finalScore = (double)adjustedScore.get() / initialScore.get();
+				log.info("Standard {} final score: {}", standard.getName(), finalScore);
+				return finalScore;
+			}
 		));
 
 		long endTime = System.currentTimeMillis();
@@ -128,9 +137,9 @@ public class StandardService {
 	@Async("taskExecutor")
 	public CompletableFuture<Void> addQnaToStandard(QnaToStandardDto qnaToStandardDto, LLMModel model) {
 		List<String> standardNameList = qnaToStandardDto.getStandardNameList()
-				.stream()
-				.map(this::mapStandardName)
-				.collect(Collectors.toList());
+			.stream()
+			.map(this::mapStandardName)
+			.collect(Collectors.toList());
 		String question = qnaToStandardDto.getQuestion().trim();
 
 		List<Standard> standards = standardRepository.findByNameIn(standardNameList);
@@ -149,6 +158,7 @@ public class StandardService {
 			standardRepository.saveAll(standards);
 		});
 	}
+
 	public void uploadAndProcessQna(MultipartFile file) {
 		long startTime = System.currentTimeMillis();
 		try {
@@ -160,7 +170,7 @@ public class StandardService {
 				log.debug("Rows: {}", rows);
 
 				Standard standard = standardRepository.findByName(standardName)
-						.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+					.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
 
 				// 중복 질문 체크를 위한 Set
 				Set<String> processedQuestions = new HashSet<>();
@@ -177,7 +187,8 @@ public class StandardService {
 					}
 
 					// Yes/No 응답 패턴 매칭
-					Pattern responsePattern = Pattern.compile("(\\d+\\.\\s*(?:no|yes)\\d*\\.?\\s*)+", Pattern.CASE_INSENSITIVE);
+					Pattern responsePattern = Pattern.compile("(\\d+\\.\\s*(?:no|yes)\\d*\\.?\\s*)+",
+						Pattern.CASE_INSENSITIVE);
 					Matcher responseMatcher = responsePattern.matcher(row);
 
 					// Yes/No 응답만 있는 행은 스킵
@@ -187,9 +198,9 @@ public class StandardService {
 
 					// 숫자와 Yes/No 응답 제거하고 실제 질문만 추출
 					String question = row.replaceAll("\\d+\\.\\s*(?:no|yes)\\d*\\.?\\s*", "")
-							.replaceAll("\"Answer each item by per line with 'Yes' or 'No'.(Example response: )¶1. I", "")
-							.replaceAll("¶\\d+\\. I", "")
-							.trim();
+						.replaceAll("\"Answer each item by per line with 'Yes' or 'No'.(Example response: )¶1. I", "")
+						.replaceAll("¶\\d+\\. I", "")
+						.trim();
 
 					// 빈 질문이거나 이미 처리한 질문은 스킵
 					if (question.isEmpty() || processedQuestions.contains(question)) {
@@ -207,7 +218,7 @@ public class StandardService {
 
 				standardRepository.save(standard);
 				log.info("Processed {} unique questions for standard: {}",
-						processedQuestions.size(), standardName);
+					processedQuestions.size(), standardName);
 			}
 		} catch (IOException e) {
 			log.error("Error processing Excel file: ", e);
@@ -274,26 +285,26 @@ public class StandardService {
 
 	public List<String> getAllStandardNames() {
 		return standardRepository.findAll() //표준 저장소에서 모든 표준을 가져옵니다.
-				.stream()
-				.map(Standard::getName) //이름만 가져오기
-				.collect(Collectors.toList()); //반환
+			.stream()
+			.map(Standard::getName) //이름만 가져오기
+			.collect(Collectors.toList()); //반환
 	}
 
 	//특정 표준 이름에 해당하는 모든 QnA 반환
 	public List<QnaSet> getAllQnaByStandardName(String standardName) {
 		return standardRepository.findByName(standardName) //이름으로 검색
-				.map(Standard::getQnaSetList) //표준이 존재하면 해당 표준의 QnA 세트 목록을 반환
-				.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+			.map(Standard::getQnaSetList) //표준이 존재하면 해당 표준의 QnA 세트 목록을 반환
+			.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
 	}
 
 	//id로 QnA 세트 제거
 	public void removeQnaFromStandard(String standardName, Long qnaSetId) {
 		Standard standard = standardRepository.findByName(standardName)
-				.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+			.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
 		QnaSet qnaSet = standard.getQnaSetList().stream()
-				.filter(q -> q.getId().equals(qnaSetId))//qna 세트목록에서 주어진 id와 일치하는 qna 세트 찾음 스트림을 사용하여 ID가 일치하는 QnA 세트를 필터링
-				.findFirst()
-				.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+			.filter(q -> q.getId().equals(qnaSetId))//qna 세트목록에서 주어진 id와 일치하는 qna 세트 찾음 스트림을 사용하여 ID가 일치하는 QnA 세트를 필터링
+			.findFirst()
+			.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
 		standard.removeQnaSet(qnaSet);
 		standardRepository.save(standard); //변경된 것 저장
 		qnaSetRepository.delete(qnaSet); //QnA 셋에서 해당 QnA 셋 삭제
@@ -322,10 +333,10 @@ public class StandardService {
 	private String getRandomKeywordForDataSet(String dataSetName) {
 
 		return dataSetRepository.findByName(dataSetName)
-				.map(DataSet::getKeywords)//데이터셋이 있으면 데이터 셋의 키워드 목록 가져오기
-				.filter(keywords -> !keywords.isEmpty())
-				.map(keywords -> keywords.get(new Random().nextInt(keywords.size())))
-				.orElse(dataSetName);
+			.map(DataSet::getKeywords)//데이터셋이 있으면 데이터 셋의 키워드 목록 가져오기
+			.filter(keywords -> !keywords.isEmpty())
+			.map(keywords -> keywords.get(new Random().nextInt(keywords.size())))
+			.orElse(dataSetName);
 	}
 
 	public Map<String, Object> calculateScore(String standardName, LLMModel model) {
@@ -381,7 +392,7 @@ public class StandardService {
 
 	private Standard validateStandardAndQnaSets(String standardName) {
 		Standard standard = standardRepository.findByName(standardName)
-				.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
+			.orElseThrow(() -> new CustomException(ErrorCode.DATA_NOT_FOUND));
 
 		if (standard.getQnaSetList().isEmpty()) {
 			throw new CustomException(ErrorCode.DATA_NOT_FOUND);
@@ -416,11 +427,12 @@ public class StandardService {
 	}
 
 	private double calculateFinalScore(int totalQuestions, int correctAnswers) {
+		log.info("Total questions: {}, Correct answers: {}", totalQuestions, correctAnswers);
 		return totalQuestions > 0 ? (double)correctAnswers / totalQuestions : 0.0;
 	}
 
 	private Map<String, Object> createResultMap(String standardName, LLMModel model, int totalQuestions,
-												int correctAnswers, double scoreValue) {
+		int correctAnswers, double scoreValue) {
 		String formattedScore = String.format("%.3f", scoreValue);
 		Map<String, Object> result = new HashMap<>();
 		result.put("score", formattedScore);
@@ -451,8 +463,8 @@ public class StandardService {
 			String standardName = standard.getName();
 			// null이거나 빈 문자열이거나 매핑되지 않는 표준은 건너뛰기
 			if (standardName == null ||
-					standardName.trim().isEmpty() ||
-					mapStandardName(standardName) == null) {
+				standardName.trim().isEmpty() ||
+				mapStandardName(standardName) == null) {
 				continue;
 			}
 
@@ -460,16 +472,16 @@ public class StandardService {
 				Map<String, Object> scoreResult = calculateScore(standardName, model);
 				double score = Double.parseDouble((String)scoreResult.get("score"));
 				ModelScore modelScore = modelScoreRepository.findByStandardNameAndModel(standardName, model)
-						.orElse(new ModelScore(standard, model, score));
+					.orElse(new ModelScore(standard, model, score));
 				modelScore.setScore(score);
 				modelScoreRepository.save(modelScore);
 
 				scores.put(standardName, Map.of("score", score));
 				log.info("Calculated and saved score for standard {} and model {}: {}",
-						standardName, model, score);
+					standardName, model, score);
 			} catch (Exception e) {
 				log.error("Error calculating and saving score for standard {} and model {}: {}",
-						standardName, model, e.getMessage(), e);
+					standardName, model, e.getMessage(), e);
 			}
 		}
 
@@ -486,7 +498,7 @@ public class StandardService {
 		}
 
 		// 기존 매핑 로직
-		switch(standardName) {
+		switch (standardName) {
 			case "diversity":
 				return "다양성 존중";
 			case "privacy":
@@ -512,13 +524,13 @@ public class StandardService {
 
 		// 원하는 표준 순서 정의
 		List<String> orderedStandards = Arrays.asList(
-				"인권보장",
-				"프라이버시 보호",
-				"다양성 존중",
-				"침해 금지",
-				"공공성",
-				"연대성",
-				"데이터 관리"
+			"인권보장",
+			"프라이버시 보호",
+			"다양성 존중",
+			"침해 금지",
+			"공공성",
+			"연대성",
+			"데이터 관리"
 		);
 
 		Map<LLMModel, Map<String, Object>> allScores = new EnumMap<>(LLMModel.class);
@@ -531,18 +543,18 @@ public class StandardService {
 			// 정의된 순서대로 표준 처리
 			for (String standardName : orderedStandards) {
 				Standard standard = standards.stream()
-						.filter(s -> s.getName() != null &&
-								s.getName().equals(standardName) &&
-								!excludedStandards.contains(s.getName()))
-						.findFirst()
-						.orElse(null);
+					.filter(s -> s.getName() != null &&
+						s.getName().equals(standardName) &&
+						!excludedStandards.contains(s.getName()))
+					.findFirst()
+					.orElse(null);
 
 				if (standard != null) {
 					ModelScore modelScore = modelScoreRepository
-							.findByStandardNameAndModel(standard.getName(), model)
-							.orElse(new ModelScore(standard, model, 0.0));
+						.findByStandardNameAndModel(standard.getName(), model)
+						.orElse(new ModelScore(standard, model, 0.0));
 					modelScores.put(standard.getName(), Map.of(
-							"score", modelScore.getScore()
+						"score", modelScore.getScore()
 					));
 				}
 			}

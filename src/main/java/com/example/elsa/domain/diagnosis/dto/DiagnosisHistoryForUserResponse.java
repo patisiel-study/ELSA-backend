@@ -11,10 +11,9 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class DiagnosisHistoryResponse {
+public class DiagnosisHistoryForUserResponse {
 	private Long diagnosisId;
 	private LocalDateTime createdAt;
 	private Double totalScore;
 	private String totalScoreToString;
-	private String llmName;
 }

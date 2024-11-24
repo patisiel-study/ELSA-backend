@@ -4,12 +4,11 @@ import java.util.List;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Getter
-@Setter
 @NoArgsConstructor
-public class DiagnosisSubmitRequest {
+public class NonMemberDiagnosisForUserSubmitRequest {
 	private List<AnswerDto> answers;
-	private String llmName;
+	private String career;
+	private String country;
 }

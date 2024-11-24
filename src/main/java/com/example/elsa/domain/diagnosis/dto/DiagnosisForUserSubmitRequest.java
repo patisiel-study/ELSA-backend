@@ -9,7 +9,6 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class DiagnosisSubmitRequest {
+public class DiagnosisForUserSubmitRequest {
 	private List<AnswerDto> answers;
-	private String llmName;
 }

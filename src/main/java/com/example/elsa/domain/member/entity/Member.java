@@ -1,6 +1,5 @@
 package com.example.elsa.domain.member.entity;
 
-import com.example.elsa.domain.diagnosis.dto.NonMemberDiagnosisSubmitRequest;
 import com.example.elsa.domain.member.dto.SignUpRequest;
 
 import jakarta.persistence.Column;
@@ -72,13 +71,13 @@ public class Member {
 			.build();
 	}
 
-	public static Member createNonMember(NonMemberDiagnosisSubmitRequest request) {
+	public static Member createNonMember(String career, String country) {
 		return Member.builder()
 			.email("nonMember")
 			.role(Role.NON_MEMBER)
 			.password("nonMember")
-			.country(Country.fromDescription(request.getCountry()))
-			.career(Career.fromDescription(request.getCareer()))
+			.country(Country.fromDescription(country))
+			.career(Career.fromDescription(career))
 			.name("비회원")
 			.nonMember(true)
 			.build();
