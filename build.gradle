@@ -64,6 +64,9 @@ dependencies {
 
     implementation 'net.bytebuddy:byte-buddy:1.14.9'
 
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+
 }
 
 tasks.named('test') {
