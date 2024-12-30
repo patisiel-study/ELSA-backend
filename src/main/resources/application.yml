@@ -31,6 +31,11 @@ spring:
 
 # server 설정은 spring 밖으로
 server:
+  port: 443
+  ssl:
+    key-store: classpath:ssl/keystore.p12
+    key-store-type: PKCS12
+    key-store-password: !min0320
   forward-headers-strategy: NATIVE
   tomcat:
     remoteip:
