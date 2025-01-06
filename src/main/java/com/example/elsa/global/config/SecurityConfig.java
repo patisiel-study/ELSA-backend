@@ -36,6 +36,7 @@ public class SecurityConfig {
 		http
 			.httpBasic(AbstractHttpConfigurer::disable)
 			.csrf(AbstractHttpConfigurer::disable)
+			.cors(cors -> cors.configurationSource(corsConfigurationSource()))
 			.formLogin(AbstractHttpConfigurer::disable)
 			.sessionManagement(sessionManagement ->
 				sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
