@@ -42,7 +42,7 @@ public class SecurityConfig {
 				sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 			)
 			.authorizeHttpRequests(authorizeRequests -> authorizeRequests
-				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/ws/**Y").permitAll()
 				.requestMatchers("/api/member/**").authenticated()
 				.requestMatchers("/api/dataset/**", "/api/standard/admin/**",
 					"/api/diagnosis/admin/**", "/api/dataset/admin/**").hasAuthority("ADMIN")
@@ -72,7 +72,8 @@ public class SecurityConfig {
 		configuration.setAllowedOrigins(Arrays.asList(
 			"https://humaind.co.kr",
 			"https://3.34.142.117",
-			"http://localhost:3000"
+			"http://localhost:3000",
+			"wss://humaind.co.kr"
 		));
 		configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(Arrays.asList("*"));
