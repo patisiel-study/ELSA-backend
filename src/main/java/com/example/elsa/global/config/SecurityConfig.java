@@ -42,7 +42,7 @@ public class SecurityConfig {
 				sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
 			)
 			.authorizeHttpRequests(authorizeRequests -> authorizeRequests
-				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/ws/**Y").permitAll()
+				.requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/ws/**").permitAll()
 				.requestMatchers("/api/member/**").authenticated()
 				.requestMatchers("/api/dataset/**", "/api/standard/admin/**",
 					"/api/diagnosis/admin/**", "/api/dataset/admin/**").hasAuthority("ADMIN")
