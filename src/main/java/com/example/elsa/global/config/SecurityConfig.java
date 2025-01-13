@@ -71,9 +71,11 @@ public class SecurityConfig {
 		CorsConfiguration configuration = new CorsConfiguration();
 		configuration.setAllowedOrigins(Arrays.asList(
 			"https://humaind.co.kr",
+			"wss://humaind.co.kr",
 			"https://3.34.142.117",
+			"wss://3.34.142.117",
 			"http://localhost:3000",
-			"wss://humaind.co.kr"
+			"ws://localhost:3000"
 		));
 		configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
 		configuration.setAllowedHeaders(Arrays.asList("*"));
