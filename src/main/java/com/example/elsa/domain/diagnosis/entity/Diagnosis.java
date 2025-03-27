@@ -22,7 +22,7 @@ import lombok.NoArgsConstructor;
 public class Diagnosis extends BaseEntity {
 	@Id
 	@Column(name = "diagnosis_id")
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
+	@GeneratedValue(strategy = GenerationType.SEQUENCE)
 	private Long diagnosisId;
 
 	@Column(nullable = false)
